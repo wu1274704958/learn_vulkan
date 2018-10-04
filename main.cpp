@@ -152,9 +152,9 @@ private:
 	void cleanUp() {
 		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 		vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
-
+		vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		vkDestroyCommandPool(device, commandPool, nullptr);
-
+		
 		for (auto fb : swapChainFrameBuffers)
 		{
 			vkDestroyFramebuffer(device, fb, nullptr);
