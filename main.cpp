@@ -7,8 +7,8 @@
 #include <fstream>
 #include <numeric>
 
-#define WIDTH  500
-#define HEIGHT 400
+static uint16_t WIDTH = 500;
+static uint16_t HEIGHT = 400;
 
 #define APPNAME "Demo1"
 
@@ -84,9 +84,13 @@ private:
 		glfwInit();
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 		window = glfwCreateWindow(WIDTH, HEIGHT, APPNAME, nullptr, nullptr);
+
+		glfwSetWindowUserPointer(window, this);
+
+		glfwSetWindowSizeCallback(window, WindowReSize);
 	}
 	void initVulkan() {
 		createInstance();
@@ -105,7 +109,16 @@ private:
 	}
 	void drawFrame() {
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint32_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+		VkResult res = vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint32_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
+		{
+			recreateSwapChain();
+		}
+		else if (res != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to present swap chain image!");
+		}
 
 		VkSubmitInfo submit_info = {};
 		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -149,12 +162,22 @@ private:
 			drawFrame();
 		}
 	}
-	void cleanUp() {
-		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
-		vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
+	void recreateSwapChain()
+	{
+		vkDeviceWaitIdle(device);
+
+		cleanUpSwapChain();
+
+		createSwapChain();
+		createImageViews();
+		createRenderPass();
+		createGraphicsPipeline();
+		createFrameBuffers();
+		createCommandBuffers();
+	}
+	void cleanUpSwapChain()
+	{
 		vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-		vkDestroyCommandPool(device, commandPool, nullptr);
-		
 		for (auto fb : swapChainFrameBuffers)
 		{
 			vkDestroyFramebuffer(device, fb, nullptr);
@@ -170,6 +193,13 @@ private:
 		}
 
 		vkDestroySwapchainKHR(device, swapChain, nullptr);
+	}
+	void cleanUp() {
+		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
+		vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
+		cleanUpSwapChain();
+		vkDestroyCommandPool(device, commandPool, nullptr);
+		
 		vkDestroyDevice(device, nullptr);
 		vkDestroySurfaceKHR(instance, surface, nullptr);
 		DestroyDebugReportCallbackEXT(instance, debugReport, nullptr);
@@ -854,6 +884,15 @@ public:
 		std::cerr << "validation layer: " << msg << std::endl;
 
 		return VK_FALSE;
+	}
+	static void WindowReSize(GLFWwindow* window, int w, int h)
+	{
+		if (w == 0 || h == 0)
+			return ;
+		WIDTH = w;
+		HEIGHT = h;
+		Demo *d = reinterpret_cast<Demo *>(glfwGetWindowUserPointer(window));
+		d->recreateSwapChain();
 	}
 };
 
