@@ -640,8 +640,8 @@ private:
 	}
 	void createGraphicsPipeline()
 	{
-		auto vsCode = readFile("vert.spv");
-		auto fgCode = readFile("frag.spv");
+		auto vsCode = readFile("shader_less_19/vert.spv");
+		auto fgCode = readFile("shader_less_19/frag.spv");
 
 		VkShaderModule vsModule = createShaderModule(vsCode);
 		VkShaderModule fgModule = createShaderModule(fgCode);
