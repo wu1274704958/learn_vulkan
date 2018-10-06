@@ -52,6 +52,12 @@ struct Vertex {
 	}
 };
 
+std::vector<Vertex> vertices = {
+	{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
+
 struct QueueFamilyIndices {
 	int graphicsFamily = -1;
 	int presentFamily = -1;
@@ -136,6 +142,7 @@ private:
 		createGraphicsPipeline();
 		createFrameBuffers();
 		createCommandPool();
+		createVertexBuffer();
 		createCommandBuffers();
 		createSemaphores();
 	}
@@ -143,11 +150,11 @@ private:
 		uint32_t imageIndex;
 		VkResult res = vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint32_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
-		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
+		if (res == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			recreateSwapChain();
 		}
-		else if (res != VK_SUCCESS)
+		else if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
 		{
 			throw std::runtime_error("failed to present swap chain image!");
 		}
@@ -183,7 +190,13 @@ private:
 
 		presentInfo.pImageIndices = &imageIndex;
 
-		vkQueuePresentKHR(presentQueue, &presentInfo);
+		res = vkQueuePresentKHR(presentQueue, &presentInfo);
+		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR) {
+			recreateSwapChain();
+		}
+		else if (res != VK_SUCCESS) {
+			throw std::runtime_error("failed to present swap chain image!");
+		}
 
 		vkQueueWaitIdle(presentQueue);
 	}
@@ -230,6 +243,8 @@ private:
 		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 		vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
 		cleanUpSwapChain();
+		vkFreeMemory(device, vertexBufferMem, nullptr);
+		vkDestroyBuffer(device, vertexBuffer, nullptr);
 		vkDestroyCommandPool(device, commandPool, nullptr);
 		
 		vkDestroyDevice(device, nullptr);
@@ -874,7 +889,11 @@ private:
 			vkCmdBeginRenderPass(cb, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-			vkCmdDraw(cb, 3, 1, 0, 0);
+			VkBuffer vertexBuffers[] = { vertexBuffer };
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+			vkCmdDraw(cb, static_cast<uint32_t>( vertices.size() ), 1, 0, 0);
 
 			vkCmdEndRenderPass(cb);
 
@@ -894,6 +913,53 @@ private:
 			vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS  ){
 				throw std::runtime_error("failed to create synchronization objects for a frame!");
 		}
+	}
+
+	void createVertexBuffer()
+	{
+		VkBufferCreateInfo buffer_info = {};
+		buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		buffer_info.size = sizeof(vertices[0]) * vertices.size();
+
+		buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		if (vkCreateBuffer(device, &buffer_info, nullptr, &vertexBuffer) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create vertex buffer!");
+		}
+
+		VkMemoryRequirements memRequirements = {};
+		vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+
+		VkMemoryAllocateInfo  memAlloc_info = {};
+		memAlloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		memAlloc_info.allocationSize = memRequirements.size;
+		memAlloc_info.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+		if (vkAllocateMemory(device, &memAlloc_info, nullptr, &vertexBufferMem) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate vertex buffer memory!");
+		}
+	
+		vkBindBufferMemory(device, vertexBuffer, vertexBufferMem, 0);
+
+		void *data = nullptr;
+		vkMapMemory(device, vertexBufferMem, 0, buffer_info.size, 0, &data);
+		memcpy(data, vertices.data(), buffer_info.size);
+		vkUnmapMemory(device, vertexBufferMem);
+	}
+
+	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+		{
+			if (typeFilter & (1 << i) && ((memProperties.memoryTypes[i].propertyFlags & properties) == properties) )
+			{
+				return i;
+			}
+		}
+		throw std::runtime_error("failed to find memory type!");
 	}
 
 	GLFWwindow *window;
@@ -916,6 +982,8 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers;
 	VkSemaphore imageAvailableSemaphore;
 	VkSemaphore renderFinishedSemaphore;
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMem;
 public:
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* layerPrefix, const char* msg, void* userData) {
 		std::cerr << "validation layer: " << msg << std::endl;
