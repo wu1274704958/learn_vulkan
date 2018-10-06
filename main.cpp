@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <fstream>
 #include <numeric>
+#include <glm/glm.hpp>
+#include <array>
 
 static uint16_t WIDTH = 500;
 static uint16_t HEIGHT = 400;
@@ -18,6 +20,36 @@ const std::vector<const char *> validationLayers = {
 
 const std::vector<const char *> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
+struct Vertex {
+	glm::vec2 pos;
+	glm::vec3 color;
+
+	static VkVertexInputBindingDescription getBindingDescription()
+	{
+		VkVertexInputBindingDescription description = {};
+		description.binding = 0;
+		description.stride = sizeof(Vertex);
+		description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		
+		return description;
+	}
+
+	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescription()
+	{
+		std::array<VkVertexInputAttributeDescription,2> attributeDescriptions = {};
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+		attributeDescriptions[1].binding = 0;
+		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		return attributeDescriptions;
+	}
 };
 
 struct QueueFamilyIndices {
@@ -640,8 +672,8 @@ private:
 	}
 	void createGraphicsPipeline()
 	{
-		auto vsCode = readFile("shader_less_19/vert.spv");
-		auto fgCode = readFile("shader_less_19/frag.spv");
+		auto vsCode = readFile("shader_19/vert.spv");
+		auto fgCode = readFile("shader_19/frag.spv");
 
 		VkShaderModule vsModule = createShaderModule(vsCode);
 		VkShaderModule fgModule = createShaderModule(fgCode);
@@ -660,10 +692,15 @@ private:
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vsStageInfo,fgStageInfo };
 
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescription = Vertex::getAttributeDescription();
+
 		VkPipelineVertexInputStateCreateInfo vertexInputState_info = {};
 		vertexInputState_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputState_info.vertexBindingDescriptionCount = 0;
-		vertexInputState_info.vertexAttributeDescriptionCount = 0;
+		vertexInputState_info.vertexBindingDescriptionCount = 1;
+		vertexInputState_info.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputState_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescription.size());
+		vertexInputState_info.pVertexAttributeDescriptions = attributeDescription.data();
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState_info = {};//输入组件 指定图元
 		inputAssemblyState_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
