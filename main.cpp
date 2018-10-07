@@ -53,9 +53,14 @@ struct Vertex {
 };
 
 std::vector<Vertex> vertices = {
-	{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+
+std::vector<uint16_t> indices = {
+	 0, 1, 2, 2, 3, 0
 };
 
 struct QueueFamilyIndices {
@@ -143,6 +148,7 @@ private:
 		createFrameBuffers();
 		createCommandPool();
 		createVertexBuffer();
+		createIndexBuffer();
 		createCommandBuffers();
 		createSemaphores();
 	}
@@ -243,8 +249,13 @@ private:
 		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 		vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
 		cleanUpSwapChain();
+
+		vkFreeMemory(device, indexBufferMem, nullptr);
+		vkDestroyBuffer(device, indexBuffer, nullptr);
+
 		vkFreeMemory(device, vertexBufferMem, nullptr);
 		vkDestroyBuffer(device, vertexBuffer, nullptr);
+
 		vkDestroyCommandPool(device, commandPool, nullptr);
 		
 		vkDestroyDevice(device, nullptr);
@@ -892,8 +903,10 @@ private:
 			VkBuffer vertexBuffers[] = { vertexBuffer };
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-			vkCmdDraw(cb, static_cast<uint32_t>( vertices.size() ), 1, 0, 0);
+			//vkCmdDraw(cb, static_cast<uint32_t>( vertices.size() ), 1, 0, 0);
+			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 			vkCmdEndRenderPass(cb);
 
@@ -931,12 +944,34 @@ private:
 		memcpy(data, vertices.data(), size);
 		vkUnmapMemory(device, stagingMem);
 
-		createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			vertexBuffer, vertexBufferMem
 		);
 
 		copyBuffer(stagingBuffer, vertexBuffer, size);
+
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingMem, nullptr);
+	}
+	void createIndexBuffer()
+	{
+		VkDeviceSize size = sizeof(indices[0]) * indices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingMem;
+		createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer, stagingMem);
+
+		void *data = nullptr;
+		vkMapMemory(device, stagingMem, 0, size, 0, &data);
+		memcpy(data, indices.data(), size);
+		vkUnmapMemory(device, stagingMem);
+		
+		createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			indexBuffer, indexBufferMem);
+
+		copyBuffer(stagingBuffer, indexBuffer, size);
 
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
 		vkFreeMemory(device, stagingMem, nullptr);
@@ -1038,6 +1073,8 @@ private:
 	VkSemaphore renderFinishedSemaphore;
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMem;
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMem;
 public:
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* layerPrefix, const char* msg, void* userData) {
 		std::cerr << "validation layer: " << msg << std::endl;
@@ -1057,15 +1094,17 @@ public:
 
 int main()
 {
-	Demo d;
-	try {
-		d.run();
-	}
-	catch (const std::runtime_error& e)
 	{
-		std::cout << e.what();
-		system("pause");
-		return -1;
+		Demo d;
+		try {
+			d.run();
+		}
+		catch (const std::runtime_error& e)
+		{
+			std::cout << e.what();
+			system("pause");
+			return -1;
+		}
 	}
 	system("pause");
 	return 0;
