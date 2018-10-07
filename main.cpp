@@ -918,14 +918,62 @@ private:
 	void createVertexBuffer()
 	{
 		VkDeviceSize size = sizeof(vertices[0]) * vertices.size();
-		createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingMem;
+
+		createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			vertexBuffer, vertexBufferMem);
+			stagingBuffer, stagingMem);
 
 		void *data = nullptr;
-		vkMapMemory(device, vertexBufferMem, 0, size, 0, &data);
+		vkMapMemory(device, stagingMem, 0, size, 0, &data);
 		memcpy(data, vertices.data(), size);
-		vkUnmapMemory(device, vertexBufferMem);
+		vkUnmapMemory(device, stagingMem);
+
+		createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			vertexBuffer, vertexBufferMem
+		);
+
+		copyBuffer(stagingBuffer, vertexBuffer, size);
+
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingMem, nullptr);
+	}
+	void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
+	{
+		VkCommandBufferAllocateInfo cbAlloc_info = {};
+		cbAlloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		cbAlloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		cbAlloc_info.commandPool = commandPool;
+		cbAlloc_info.commandBufferCount = 1;
+
+		VkCommandBuffer cb;
+		if (vkAllocateCommandBuffers(device, &cbAlloc_info, &cb) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate command buffer!");
+		}
+
+		VkCommandBufferBeginInfo begin_info = {};
+		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	
+		vkBeginCommandBuffer(cb, &begin_info);
+
+		VkBufferCopy copyRegion = {};
+		copyRegion.size = size;
+		vkCmdCopyBuffer(cb, src, dst, 1, &copyRegion);
+		vkEndCommandBuffer(cb);
+
+		VkSubmitInfo submit_info = {};
+		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submit_info.commandBufferCount = 1;
+		submit_info.pCommandBuffers = &cb;
+		
+		vkQueueSubmit(graphicsQueue, 1, &submit_info, VK_NULL_HANDLE);
+		vkDeviceWaitIdle(device);
+		vkFreeCommandBuffers(device, commandPool, 1, &cb);
 	}
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
