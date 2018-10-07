@@ -917,35 +917,14 @@ private:
 
 	void createVertexBuffer()
 	{
-		VkBufferCreateInfo buffer_info = {};
-		buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		buffer_info.size = sizeof(vertices[0]) * vertices.size();
-
-		buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		if (vkCreateBuffer(device, &buffer_info, nullptr, &vertexBuffer) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create vertex buffer!");
-		}
-
-		VkMemoryRequirements memRequirements = {};
-		vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
-
-		VkMemoryAllocateInfo  memAlloc_info = {};
-		memAlloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		memAlloc_info.allocationSize = memRequirements.size;
-		memAlloc_info.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-		if (vkAllocateMemory(device, &memAlloc_info, nullptr, &vertexBufferMem) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to allocate vertex buffer memory!");
-		}
-	
-		vkBindBufferMemory(device, vertexBuffer, vertexBufferMem, 0);
+		VkDeviceSize size = sizeof(vertices[0]) * vertices.size();
+		createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			vertexBuffer, vertexBufferMem);
 
 		void *data = nullptr;
-		vkMapMemory(device, vertexBufferMem, 0, buffer_info.size, 0, &data);
-		memcpy(data, vertices.data(), buffer_info.size);
+		vkMapMemory(device, vertexBufferMem, 0, size, 0, &data);
+		memcpy(data, vertices.data(), size);
 		vkUnmapMemory(device, vertexBufferMem);
 	}
 
@@ -960,6 +939,33 @@ private:
 			}
 		}
 		throw std::runtime_error("failed to find memory type!");
+	}
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memProperty, VkBuffer &buffer, VkDeviceMemory &mem)
+	{
+		VkBufferCreateInfo buffer_info = {};
+		buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		buffer_info.size = size;
+		buffer_info.usage = usage;
+		buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		
+		if (vkCreateBuffer(device, &buffer_info, nullptr, &buffer) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create buffer!");
+		}
+
+		VkMemoryRequirements memRequirments;
+		vkGetBufferMemoryRequirements(device, buffer, &memRequirments);
+
+		VkMemoryAllocateInfo alloc_info = {};
+		alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		alloc_info.allocationSize = size;
+		alloc_info.memoryTypeIndex = findMemoryType(memRequirments.memoryTypeBits, memProperty);
+
+		if (vkAllocateMemory(device, &alloc_info, nullptr, &mem) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate memory!");
+		}
+		vkBindBufferMemory(device, buffer, mem, 0);
 	}
 
 	GLFWwindow *window;
