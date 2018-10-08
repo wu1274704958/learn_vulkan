@@ -1,4 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
+
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
@@ -6,8 +7,11 @@
 #include <algorithm>
 #include <fstream>
 #include <numeric>
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <array>
+#include <chrono>
 
 static uint16_t WIDTH = 500;
 static uint16_t HEIGHT = 400;
@@ -50,6 +54,12 @@ struct Vertex {
 		attributeDescriptions[1].offset = offsetof(Vertex, color);
 		return attributeDescriptions;
 	}
+};
+
+struct UniformBufferObject {
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
 };
 
 std::vector<Vertex> vertices = {
@@ -144,11 +154,13 @@ private:
 		createSwapChain();
 		createImageViews();
 		createRenderPass();
+		createDescriptorSetLayout();
 		createGraphicsPipeline();
 		createFrameBuffers();
 		createCommandPool();
 		createVertexBuffer();
 		createIndexBuffer();
+		createUniformBuffer();
 		createCommandBuffers();
 		createSemaphores();
 	}
@@ -210,8 +222,10 @@ private:
 		while (!glfwWindowShouldClose(window))
 		{
 			glfwPollEvents();
+			updateUniformBuffer();
 			drawFrame();
 		}
+		vkDeviceWaitIdle(device);
 	}
 	void recreateSwapChain()
 	{
@@ -249,6 +263,12 @@ private:
 		vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 		vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
 		cleanUpSwapChain();
+
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+
+		vkFreeMemory(device, uniformBufferMem, nullptr);
+		vkDestroyBuffer(device, uniformBufferMem, nullptr);
 
 		vkFreeMemory(device, indexBufferMem, nullptr);
 		vkDestroyBuffer(device, indexBuffer, nullptr);
@@ -698,8 +718,8 @@ private:
 	}
 	void createGraphicsPipeline()
 	{
-		auto vsCode = readFile("shader_19/vert.spv");
-		auto fgCode = readFile("shader_19/frag.spv");
+		auto vsCode = readFile("shader_23/vert.spv");
+		auto fgCode = readFile("shader_23/frag.spv");
 
 		VkShaderModule vsModule = createShaderModule(vsCode);
 		VkShaderModule fgModule = createShaderModule(fgCode);
@@ -1051,6 +1071,60 @@ private:
 		vkBindBufferMemory(device, buffer, mem, 0);
 	}
 
+	void createDescriptorSetLayout()
+	{
+		VkDescriptorSetLayoutBinding setLayoutBinging = {};
+		setLayoutBinging.binding = 0;
+		setLayoutBinging.descriptorCount = 1;
+		setLayoutBinging.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		setLayoutBinging.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		VkDescriptorSetLayoutCreateInfo setLayout_info = {};
+		setLayout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		setLayout_info.bindingCount = 1;
+		setLayout_info.pBindings = &setLayoutBinging;
+
+		if (vkCreateDescriptorSetLayout(device, &setLayout_info, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create Descriptor Set Layout!");
+		}
+		VkPipelineLayoutCreateInfo pipelineLayout_info = {};
+		pipelineLayout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayout_info.setLayoutCount = 1;
+		pipelineLayout_info.pSetLayouts = &descriptorSetLayout;
+
+		if (vkCreatePipelineLayout(device, &pipelineLayout_info, nullptr, &pipelineLayout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create pipeline layout!");
+		}
+	}
+
+	void createUniformBuffer()
+	{
+		VkDeviceSize size = sizeof(UniformBufferObject);
+
+		createBuffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			uniformBuffer, uniformBufferMem);
+
+	}
+	void updateUniformBuffer()
+	{
+		static auto start = std::chrono::high_resolution_clock::now();
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - start).count() / 1000.f;
+
+		UniformBufferObject ubo = {};
+		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		void *data = nullptr;
+		vkMapMemory(device, uniformBufferMem, 0, sizeof(ubo), 0, &data);
+		memcpy(data, &ubo, sizeof(ubo));
+		vkUnmapMemory(device, uniformBufferMem);
+	}
+
 	GLFWwindow *window;
 	VkInstance instance;
 	VkDebugReportCallbackEXT debugReport;
@@ -1075,6 +1149,10 @@ private:
 	VkDeviceMemory vertexBufferMem;
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMem;
+	VkDescriptorSetLayout descriptorSetLayout;
+	VkPipelineLayout pipelineLayout;
+	VkBuffer uniformBuffer;
+	VkDeviceMemory uniformBufferMem;
 public:
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* layerPrefix, const char* msg, void* userData) {
 		std::cerr << "validation layer: " << msg << std::endl;
