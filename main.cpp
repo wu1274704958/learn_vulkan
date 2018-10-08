@@ -161,6 +161,8 @@ private:
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffer();
+		createDescriptorPool();
+		createDescriptorSet();
 		createCommandBuffers();
 		createSemaphores();
 	}
@@ -265,16 +267,17 @@ private:
 		cleanUpSwapChain();
 
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 
 		vkFreeMemory(device, uniformBufferMem, nullptr);
-		vkDestroyBuffer(device, uniformBufferMem, nullptr);
+		vkDestroyBuffer(device, uniformBuffer, nullptr);
 
 		vkFreeMemory(device, indexBufferMem, nullptr);
 		vkDestroyBuffer(device, indexBuffer, nullptr);
 
 		vkFreeMemory(device, vertexBufferMem, nullptr);
 		vkDestroyBuffer(device, vertexBuffer, nullptr);
+
+		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
 		vkDestroyCommandPool(device, commandPool, nullptr);
 		
@@ -778,7 +781,7 @@ private:
 		rasterization_info.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterization_info.lineWidth = 1.0f;
 		rasterization_info.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterization_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		rasterization_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterization_info.depthBiasEnable = VK_FALSE;
 
 		VkPipelineMultisampleStateCreateInfo multisample_info = {};
@@ -801,15 +804,7 @@ private:
 		colorBlend_info.blendConstants[2] = 0.0f;
 		colorBlend_info.blendConstants[3] = 0.0f;
 
-		VkPipelineLayoutCreateInfo layout_info = {};
-		layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		layout_info.pushConstantRangeCount = 0;
-		layout_info.setLayoutCount = 0;
-
-		if (vkCreatePipelineLayout(device, &layout_info, nullptr, &pipelineLayout) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create Pipeline Layout!");
-		}
+		
 		VkGraphicsPipelineCreateInfo graphicsPipeline_info = {};
 		graphicsPipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		graphicsPipeline_info.stageCount = 2;
@@ -924,6 +919,7 @@ private:
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
 			//vkCmdDraw(cb, static_cast<uint32_t>( vertices.size() ), 1, 0, 0);
 			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
@@ -1118,11 +1114,57 @@ private:
 		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
 		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
+		ubo.proj[1][1] *= -1;
 		void *data = nullptr;
 		vkMapMemory(device, uniformBufferMem, 0, sizeof(ubo), 0, &data);
 		memcpy(data, &ubo, sizeof(ubo));
 		vkUnmapMemory(device, uniformBufferMem);
+	}
+	void createDescriptorPool()
+	{
+		VkDescriptorPoolSize poolSize = {};
+		poolSize.descriptorCount = 1;
+		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+		VkDescriptorPoolCreateInfo pool_info = {};
+		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		pool_info.poolSizeCount = 1;
+		pool_info.pPoolSizes = &poolSize;
+		
+		pool_info.maxSets = 1;
+		if (vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create descriptor pool!");
+		}
+	}
+
+	void createDescriptorSet()
+	{
+		VkDescriptorSetAllocateInfo descriptorSetAlloc_info = {};
+		descriptorSetAlloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		descriptorSetAlloc_info.descriptorPool = descriptorPool;
+		descriptorSetAlloc_info.descriptorSetCount = 1;
+		descriptorSetAlloc_info.pSetLayouts = &descriptorSetLayout;
+
+		if (vkAllocateDescriptorSets(device, &descriptorSetAlloc_info, &descriptorSet) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate descriptor set!");
+		}
+		VkDescriptorBufferInfo descriptorBuffer_info = {};
+		descriptorBuffer_info.buffer = uniformBuffer;
+		descriptorBuffer_info.offset = 0;
+		descriptorBuffer_info.range = sizeof(UniformBufferObject);
+
+		VkWriteDescriptorSet writeDescriptSet = {};
+		writeDescriptSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDescriptSet.dstSet = descriptorSet;
+		writeDescriptSet.dstBinding = 0;
+		writeDescriptSet.dstArrayElement = 0;
+		writeDescriptSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writeDescriptSet.descriptorCount = 1;
+		writeDescriptSet.pBufferInfo = &descriptorBuffer_info;
+
+		vkUpdateDescriptorSets(device, 1, &writeDescriptSet, 0, nullptr);
 	}
 
 	GLFWwindow *window;
@@ -1150,9 +1192,10 @@ private:
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMem;
 	VkDescriptorSetLayout descriptorSetLayout;
-	VkPipelineLayout pipelineLayout;
 	VkBuffer uniformBuffer;
 	VkDeviceMemory uniformBufferMem;
+	VkDescriptorPool descriptorPool;
+	VkDescriptorSet descriptorSet;
 public:
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* layerPrefix, const char* msg, void* userData) {
 		std::cerr << "validation layer: " << msg << std::endl;
