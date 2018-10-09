@@ -804,6 +804,16 @@ private:
 		colorBlend_info.blendConstants[2] = 0.0f;
 		colorBlend_info.blendConstants[3] = 0.0f;
 
+		VkPipelineLayoutCreateInfo pipelineLayout_info = {};
+		pipelineLayout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayout_info.setLayoutCount = 1;
+		pipelineLayout_info.pSetLayouts = &descriptorSetLayout;
+
+		if (vkCreatePipelineLayout(device, &pipelineLayout_info, nullptr, &pipelineLayout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create pipeline layout!");
+		}
+
 		
 		VkGraphicsPipelineCreateInfo graphicsPipeline_info = {};
 		graphicsPipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1084,15 +1094,7 @@ private:
 		{
 			throw std::runtime_error("failed to create Descriptor Set Layout!");
 		}
-		VkPipelineLayoutCreateInfo pipelineLayout_info = {};
-		pipelineLayout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayout_info.setLayoutCount = 1;
-		pipelineLayout_info.pSetLayouts = &descriptorSetLayout;
-
-		if (vkCreatePipelineLayout(device, &pipelineLayout_info, nullptr, &pipelineLayout) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create pipeline layout!");
-		}
+		
 	}
 
 	void createUniformBuffer()
