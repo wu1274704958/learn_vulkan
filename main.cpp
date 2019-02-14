@@ -724,8 +724,8 @@ private:
 	}
 	void createGraphicsPipeline()
 	{
-		auto vsCode = readFile("shader_23/vert.spv");
-		auto fgCode = readFile("shader_23/frag.spv");
+		auto vsCode = readFile("../../shader_23/vert.spv");
+		auto fgCode = readFile("../../shader_23/frag.spv");
 
 		VkShaderModule vsModule = createShaderModule(vsCode);
 		VkShaderModule fgModule = createShaderModule(fgCode);
@@ -1149,7 +1149,7 @@ private:
 	void createTextureImage()
 	{
 		int texWidth, texHeight, texChannel;
-		stbi_uc* pixels =  stbi_load("textures/texture.jpg", &texWidth, &texHeight, &texChannel, STBI_rgb_alpha);
+		stbi_uc* pixels =  stbi_load("../../textures/texture.jpg", &texWidth, &texHeight, &texChannel, STBI_rgb_alpha);
 		if (!pixels)
 		{
 			throw std::runtime_error("failed to load image!");
