@@ -1,16 +1,36 @@
 cmake_minimum_required(VERSION 3.2)
 project(learn_vulkan)
 
-add_compile_options("/std:c++17")
+if(WIN32)
 
-include_directories(${CMAKE_SOURCE_DIR}/3rd_party/stb)
+    add_compile_options("/std:c++17")
 
-include_directories(D:/MyLib/1.1.82.1/Include D:/MyLib/glfw-3.2.1/include D:/MyLib/glm-0.9.6.3/glm )
+else()
 
-link_directories(D:/MyLib/1.1.82.1/lib32  D:/MyLib/glfw-3.2.1/build/src/Release)
+    add_compile_options("-std:c++17")
 
-add_executable(${PROJECT_NAME} main.cpp)
+endif()
 
-target_link_libraries(${PROJECT_NAME} glfw3.lib vulkan-1.lib)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+
+
+find_package(GLM)
+find_package(GLFW3)
+find_package(VULKAN)
+
+message("${GLFW3_FOUND} ${VULKAN_FOUND} ${GLM_FOUND}")
+
+if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
+	
+	message(OK!)
+	message(${GLM_INCLUDE_DIR})
+    include_directories(${GLFW3_INCLUDE_DIR} ${VULKAN_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/3rd_party/stb)
+    add_executable(${PROJECT_NAME} main.cpp)
+    target_link_libraries(${PROJECT_NAME} ${GLFW3_LIBRARY} ${VULKAN_LIBRARY})
+
+endif()
+
+
+
 
 

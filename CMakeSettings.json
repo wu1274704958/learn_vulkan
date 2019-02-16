@@ -1,11 +1,11 @@
 {
   "configurations": [
     {
-      "name": "x86-Debug",
+      "name": "x64-Debug",
       "generator": "Ninja",
       "configurationType": "Debug",
       "inheritEnvironments": [
-        "msvc_x86"
+        "msvc_x64_x64"
       ],
       "buildRoot": "${projectDir}\\build\\${name}",
       "installRoot": "${projectDir}\\install\\${name}",
@@ -14,11 +14,11 @@
       "ctestCommandArgs": ""
     },
     {
-      "name": "x86-Release",
+      "name": "x64-Release",
       "generator": "Ninja",
       "configurationType": "Release",
       "inheritEnvironments": [
-        "msvc_x86"
+        "msvc_x64_x64"
       ],
       "buildRoot": "${projectDir}\\build\\${name}",
       "installRoot": "${projectDir}\\install\\${name}",
