@@ -6,7 +6,7 @@ if(WIN32)
     set(GLM_PATH $ENV{GLM_PATH})
     if( GLM_PATH )
 
-        message("Find LIB_SDL2 env!")
+        message("Find GLM_PATH env!")
         message(${GLM_PATH})
 
         find_path( GLM_INCLUDE_DIR glm "${GLM_PATH}" )
