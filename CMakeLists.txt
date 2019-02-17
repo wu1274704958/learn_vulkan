@@ -20,6 +20,8 @@ find_package(VULKAN)
 
 message("${GLFW3_FOUND} ${VULKAN_FOUND} ${GLM_FOUND}")
 
+add_subdirectory(cube)
+
 if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 	
 	message(OK!)
@@ -27,6 +29,10 @@ if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
     include_directories(${GLFW3_INCLUDE_DIR} ${VULKAN_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/3rd_party/stb)
     add_executable(${PROJECT_NAME} main.cpp)
     target_link_libraries(${PROJECT_NAME} ${GLFW3_LIBRARY} ${VULKAN_LIBRARY})
+
+else()
+
+message("Failed!")
 
 endif()
 
