@@ -13,6 +13,16 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
+SET(BASE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/base")
+SET(IMGUI_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/imgui")
+
+if(WIN32)
+
+add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
+SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/3rd_party/base/base.lib")
+
+endif()
+
 
 find_package(GLM)
 find_package(GLFW3)
