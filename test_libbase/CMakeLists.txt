@@ -1,6 +1,5 @@
-
-set(SOURCE_FILES cube.cpp)
-set(BUILD_NAME "cube")
+file(GLOB SOURCE_FILES "*.cpp")
+set(BUILD_NAME "test_libbase")
 add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
 include_directories(${BASE_INCLUDE_DIR} ${IMGUI_INCLUDE_DIR})
 
