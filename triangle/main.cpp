@@ -60,14 +60,38 @@ private:
 	//用于检查队列操作的完成情况（例如命令缓冲区执行）
 	std::vector<VkFence> waitFences;
 
+	~Triangle()
+	{
+		vkDestroyPipeline(device, pipeline, nullptr);
+
+		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
+		vkDestroyBuffer(device, vertices.buffer, nullptr);
+		vkFreeMemory(device, vertices.memory, nullptr);
+
+		vkDestroyBuffer(device, indeices.buffer, nullptr);
+		vkFreeMemory(device, indeices.memory, nullptr);
+
+		vkDestroyBuffer(device, uniformBufferVS.buffer, nullptr);
+		vkFreeMemory(device, uniformBufferVS.memory, nullptr);
+
+		vkDestroySemaphore(device, presentSemaphore, nullptr);
+		vkDestroySemaphore(device, renderSemaphore, nullptr);
+
+		for (auto fence : waitFences)
+		{
+			vkDestroyFence(device, fence, nullptr);
+		}
+
+	}
 };
 
 #if defined(_WIN32)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-	Triangle tri;
-	MessageBoxA(0, tri.getAssetPath().data(), "Tip", MB_OK);
+	MessageBoxA(0, VK_EXAMPLE_DATA_DIR, "Tip", MB_OK);
 	return 0;
 }
 
