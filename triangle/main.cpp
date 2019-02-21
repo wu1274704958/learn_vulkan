@@ -83,15 +83,174 @@ private:
 		{
 			vkDestroyFence(device, fence, nullptr);
 		}
+	}
 
+	uint32_t getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags property)
+	{
+		for (int i = 0; i < deviceMemoryProperties.memoryTypeCount; ++i)
+		{
+			if ((typeBits & 1) == 1)
+			{
+				if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & property) == property)
+				{
+					return i;
+				}
+			}
+			typeBits >>= 1;
+		}
+		throw "Could not find a suitable memory type";
+	}
+
+	void prepareSynchronizationPrimitives()
+	{
+		VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		semaphoreCreateInfo.pNext = nullptr;
+
+		vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &presentSemaphore);
+		vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &renderSemaphore);
+
+		VkFenceCreateInfo fenceCreateInfo = {};
+		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+		waitFences.resize(drawCmdBuffers.size());
+		for (int i = 0; i < waitFences.size(); ++i)
+		{
+			vkCreateFence(device, &fenceCreateInfo, nullptr, &waitFences[i]);
+		}
+	}
+
+	VkCommandBuffer getCommandBuffer(bool begin)
+	{
+		VkCommandBuffer commandBuffer;
+
+		VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+		commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		commandBufferAllocateInfo.commandPool = cmdPool;
+		commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		commandBufferAllocateInfo.commandBufferCount = 1;
+		
+		vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer);
+
+		if (begin) {
+			VkCommandBufferBeginInfo cmdBeginInfo = vks::initializers::commandBufferBeginInfo();
+			vkBeginCommandBuffer(commandBuffer, &cmdBeginInfo);
+		}
+		return commandBuffer;
+	}
+
+	void flushCommandBuffer(VkCommandBuffer cmdBuffer)
+	{
+		assert(cmdBuffer != VK_NULL_HANDLE);
+
+		vkEndCommandBuffer(cmdBuffer);
+
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.pCommandBuffers = &cmdBuffer;
+		submitInfo.commandBufferCount = 1;
+
+		VkFence fence;
+		VkFenceCreateInfo fenceCreateInfo = {};
+		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceCreateInfo.flags = 0;
+
+		vkCreateFence(device, &fenceCreateInfo, nullptr, &fence);
+
+		vkQueueSubmit(queue, 1, &submitInfo, fence);
+		vkWaitForFences(device, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT);
+
+		vkDestroyFence(device, fence, nullptr);
+		vkFreeCommandBuffers(device, cmdPool, 1, &cmdBuffer);
+	}
+
+	void buildCommandBuffers()
+	{
+		VkCommandBufferBeginInfo cmdBeginInfo = {};
+		cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+		VkClearValue clearValue[2];
+		clearValue[0].color = { { 0.0f, 0.0f, 0.2f, 1.0f } };
+		clearValue[1].depthStencil = { 1.0f,0 };
+
+		VkRenderPassBeginInfo renderPassBeginInfo = {};
+		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBeginInfo.pClearValues = clearValue;
+		renderPassBeginInfo.clearValueCount = 2;
+		renderPassBeginInfo.renderArea.offset.x = 0;
+		renderPassBeginInfo.renderArea.offset.y = 0;
+		renderPassBeginInfo.renderArea.extent.width = width;
+		renderPassBeginInfo.renderArea.extent.height = height;
+		renderPassBeginInfo.renderPass = renderPass;
+
+		for (int i = 0; i < drawCmdBuffers.size(); ++i)
+		{
+			renderPassBeginInfo.framebuffer = frameBuffers[i];
+
+			vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBeginInfo);
+
+			vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+			VkViewport viewport;
+			viewport.x = 0.0f;
+			viewport.y = 0.0f;
+			viewport.width = (float)width;
+			viewport.height = (float)height;
+			viewport.minDepth = 0.0f;
+			viewport.maxDepth = 1.0f;
+
+			vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
+
+			VkRect2D scissor;
+			scissor.extent.width = width;
+			scissor.extent.height = height;
+			scissor.offset.x = 0;
+			scissor.offset.y = 0;
+
+			vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
+
+			vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+			
+			vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+			vkCmdBindVertexBuffers(drawCmdBuffers[i], 0, 1, &vertices.buffer, nullptr);
+
+			vkCmdBindIndexBuffer(drawCmdBuffers[i], indeices.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+			vkCmdDrawIndexed(drawCmdBuffers[i], indeices.count, 1, 0, 0, 0);
+
+			vkCmdEndRenderPass(drawCmdBuffers[i]);
+			vkEndCommandBuffer(drawCmdBuffers[i]);
+		}
+	}
+
+	void draw()
+	{
+		swapChain.acquireNextImage(presentSemaphore, &currentBuffer);
+
+		vkWaitForFences(device, 1, &waitFences[currentBuffer], VK_TRUE, DEFAULT_FENCE_TIMEOUT);
+		vkResetFences(device, 1, &waitFences[currentBuffer]);
+
+		VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.pWaitDstStageMask = &waitStageMask;
+		submitInfo.pWaitSemaphores = &presentSemaphore;
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = &renderSemaphore;
+		submitInfo.signalSemaphoreCount = 1;
 	}
 };
-
 #if defined(_WIN32)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-	MessageBoxA(0, VK_EXAMPLE_DATA_DIR, "Tip", MB_OK);
+	char arr[4] = { 'a','b','c','d' };
+	char str[200] = { 0 };
+	sprintf(str, "%s %c", VK_EXAMPLE_DATA_DIR, *((char *)&arr));
+	MessageBoxA(0, str, "Tip", MB_OK);
 	return 0;
 }
 
