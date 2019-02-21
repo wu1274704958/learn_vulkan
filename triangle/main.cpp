@@ -241,6 +241,28 @@ private:
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &renderSemaphore;
 		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+		submitInfo.commandBufferCount = 1;
+
+		vkQueueSubmit(queue, 1, &submitInfo, waitFences[currentBuffer]);
+		swapChain.queuePresent(queue, currentBuffer, renderSemaphore);
+	}
+
+	void prepareVertices(bool useStageBuffers)
+	{
+		std::vector<Vertex> vertexBuffer =
+		{
+			{ {  1.0f,  1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
+			{ { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
+			{ {  0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+		};
+
+		uint32_t vertexBufferSize = static_cast<uint32_t>(vertexBuffer.size()) * sizeof(Vertex);
+
+		std::vector<uint32_t> indexBuffer = { 0,1,2 };
+		indeices.count = static_cast<uint32_t>(indexBuffer.size());
+		uint32_t indexBufferSize = static_cast<uint32_t>(indexBuffer.size()) * sizeof(uint32_t);
+
 	}
 };
 #if defined(_WIN32)
