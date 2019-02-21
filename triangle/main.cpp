@@ -263,6 +263,60 @@ private:
 		indeices.count = static_cast<uint32_t>(indexBuffer.size());
 		uint32_t indexBufferSize = static_cast<uint32_t>(indexBuffer.size()) * sizeof(uint32_t);
 
+		VkMemoryAllocateInfo memAllocateInfo = {};
+		memAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+
+		VkMemoryRequirements memoryRequirement;
+
+		void *data = nullptr;
+		if (useStageBuffers)
+		{
+			struct StagingBuffer
+			{
+				VkBuffer buffer;
+				VkDeviceMemory memory;
+			};
+
+			struct {
+				StagingBuffer vertices;
+				StagingBuffer indices;
+			} stagingBuffers;
+
+			VkBufferCreateInfo bufferCreateInfo = {};
+			bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+			bufferCreateInfo.size = vertexBufferSize;
+
+			bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+			vkCreateBuffer(device, &bufferCreateInfo, nullptr, &stagingBuffers.vertices.buffer);
+
+			vkGetBufferMemoryRequirements(device, stagingBuffers.vertices.buffer, &memoryRequirement);
+			memAllocateInfo.allocationSize = memoryRequirement.size;
+
+			memAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memoryRequirement.memoryTypeBits,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+			vkAllocateMemory(device, &memAllocateInfo, nullptr, &stagingBuffers.vertices.memory);
+
+			vkMapMemory(device, stagingBuffers.vertices.memory, 0, vertexBufferSize, 0, &data);
+			memcpy(data, vertexBuffer.data(), vertexBufferSize);
+			vkUnmapMemory(device, stagingBuffers.vertices.memory);
+			vkBindBufferMemory(device,stagingBuffers.vertices.buffer, stagingBuffers.vertices.memory, 0);
+
+			//create device local memory.
+			bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+			vkCreateBuffer(device, &bufferCreateInfo, nullptr, &vertices.buffer);
+
+			vkGetBufferMemoryRequirements(device, vertices.buffer, &memoryRequirement);
+			memAllocateInfo.allocationSize = memoryRequirement.size;
+			memAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memoryRequirement.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+			vkAllocateMemory(device, &memAllocateInfo, nullptr, &vertices.memory);
+			vkBindBufferMemory(device, vertices.buffer, vertices.memory,0);
+
+		}
+		else {
+
+		}
 	}
 };
 #if defined(_WIN32)
