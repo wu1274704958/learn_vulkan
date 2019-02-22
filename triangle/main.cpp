@@ -313,10 +313,313 @@ private:
 			vkAllocateMemory(device, &memAllocateInfo, nullptr, &vertices.memory);
 			vkBindBufferMemory(device, vertices.buffer, vertices.memory,0);
 
+			//indices buffer
+			bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+			bufferCreateInfo.size = indexBufferSize;
+			
+			vkCreateBuffer(device, &bufferCreateInfo, nullptr, &stagingBuffers.indices.buffer);
+
+			vkGetBufferMemoryRequirements(device, stagingBuffers.indices.buffer, &memoryRequirement);
+
+			memAllocateInfo.allocationSize = memoryRequirement.size;
+			memAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memoryRequirement.memoryTypeBits,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+			vkAllocateMemory(device, &memAllocateInfo, nullptr, &stagingBuffers.indices.memory);
+			
+			vkMapMemory(device, stagingBuffers.indices.memory, 0, indexBufferSize, 0, &data);
+			memcpy(data, indexBuffer.data(), indexBufferSize);
+			vkUnmapMemory(device, stagingBuffers.indices.memory);
+			vkBindBufferMemory(device, stagingBuffers.indices.buffer, stagingBuffers.indices.memory, 0);
+
+			//create device local memory.
+			bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+			bufferCreateInfo.size = indexBufferSize;
+			vkCreateBuffer(device, &bufferCreateInfo, nullptr, &indeices.buffer);
+
+			vkGetBufferMemoryRequirements(device, indeices.buffer, &memoryRequirement);
+			memAllocateInfo.allocationSize = memoryRequirement.size;
+			memAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memoryRequirement.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			vkAllocateMemory(device, &memAllocateInfo, nullptr, &indeices.memory);
+			vkBindBufferMemory(device, indeices.buffer, indeices.memory, 0);
+
+			VkCommandBuffer copycmd = getCommandBuffer(true);
+
+			VkBufferCopy copyRegion = {};
+			copyRegion.size = vertexBufferSize;
+			vkCmdCopyBuffer(copycmd, stagingBuffers.vertices.buffer, vertices.buffer, 1, &copyRegion);
+
+			copyRegion.size = indexBufferSize;
+			vkCmdCopyBuffer(copycmd, stagingBuffers.indices.buffer, indeices.buffer, 1, &copyRegion);
+
+			flushCommandBuffer(copycmd);
 		}
 		else {
+			VkBufferCreateInfo bufferCreateInfo = {};
+			bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 
+			bufferCreateInfo.size = vertexBufferSize;
+			bufferCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+			
+			vkCreateBuffer(device, &bufferCreateInfo, nullptr, &vertices.buffer);
+			vkGetBufferMemoryRequirements(device, vertices.buffer, &memoryRequirement);
+
+			memAllocateInfo.allocationSize = memoryRequirement.size;
+			memAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memoryRequirement.memoryTypeBits,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+			vkAllocateMemory(device, &memAllocateInfo, nullptr, &vertices.memory);
+			vkMapMemory(device, vertices.memory, 0, vertexBufferSize, 0, &data);
+			memcpy(data, vertexBuffer.data(), vertexBufferSize);
+			vkUnmapMemory(device, vertices.memory);
+			vkBindBufferMemory(device, vertices.buffer, vertices.memory, 0);
+
+			bufferCreateInfo.size = indexBufferSize;
+			bufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+			vkCreateBuffer(device, &bufferCreateInfo, nullptr, &indeices.buffer);
+			vkGetBufferMemoryRequirements(device, indeices.buffer, &memoryRequirement);
+			memAllocateInfo.allocationSize = memoryRequirement.size;
+			memAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memoryRequirement.memoryTypeBits,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+			vkAllocateMemory(device, &memAllocateInfo, nullptr, &indeices.memory);
+			vkMapMemory(device, indeices.memory, 0, indexBufferSize, 0, &data);
+			memcpy(data, indexBuffer.data(), indexBufferSize);
+			vkUnmapMemory(device, indeices.memory);
+			vkBindBufferMemory(device, indeices.buffer, indeices.memory, 0);
 		}
+	}
+
+	void setupDescriptorPool()
+	{
+		VkDescriptorPoolSize typeCount[1];
+		typeCount[0].descriptorCount = 1;
+		typeCount[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
+		descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		descriptorPoolCreateInfo.poolSizeCount = 1;
+		descriptorPoolCreateInfo.pPoolSizes = typeCount;
+		descriptorPoolCreateInfo.maxSets = 1;
+
+		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool));
+	}
+
+	void setupDescriptorSetLayout()
+	{
+		VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {};
+		descriptorSetLayoutBinding.descriptorCount = 1;
+		descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		descriptorSetLayoutBinding.pImmutableSamplers = VK_NULL_HANDLE;
+
+		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+		descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		descriptorSetLayoutCreateInfo.bindingCount = 1;
+		descriptorSetLayoutCreateInfo.pBindings = &descriptorSetLayoutBinding;
+		vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout);
+
+		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+		pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutCreateInfo.setLayoutCount = 1;
+		pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
+		
+		vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
+	}
+
+	void setupDescriptorSet()
+	{
+		VkDescriptorSetAllocateInfo descriptorAllocateInfo = {};
+		descriptorAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		descriptorAllocateInfo.descriptorSetCount = 1;
+		descriptorAllocateInfo.pSetLayouts = &descriptorSetLayout;
+		descriptorAllocateInfo.descriptorPool = descriptorPool;
+
+		vkAllocateDescriptorSets(device, &descriptorAllocateInfo, &descriptorSet);
+		//uniform binding 0
+		VkWriteDescriptorSet writeDescriptSet = {};
+		writeDescriptSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDescriptSet.dstBinding = 0;
+		writeDescriptSet.dstSet = descriptorSet;
+		writeDescriptSet.descriptorCount = 1;
+		writeDescriptSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writeDescriptSet.pBufferInfo = &uniformBufferVS.descriptor;
+
+		vkUpdateDescriptorSets(device, 1, &writeDescriptSet, 0, nullptr);
+	}
+
+	void setupDepthStencil() override
+	{
+		VkImageCreateInfo imageCreateInfo = {};
+		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCreateInfo.arrayLayers = 1;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.format = depthFormat;
+		imageCreateInfo.extent = { width,height,1 };
+		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+		vkCreateImage(device, &imageCreateInfo, nullptr, &depthStencil.image);
+
+		VkMemoryAllocateInfo memAllocateInfo = {};
+		memAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+
+		VkMemoryRequirements memRequirement;
+		vkGetImageMemoryRequirements(device, depthStencil.image, &memRequirement);
+		
+		memAllocateInfo.allocationSize = memRequirement.size;
+		memAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memRequirement.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vkAllocateMemory(device, &memAllocateInfo, nullptr, &depthStencil.mem);
+		vkBindImageMemory(device, depthStencil.image, depthStencil.mem, 0);
+
+		VkImageViewCreateInfo imageViewCreateInfo = {};
+		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		imageViewCreateInfo.subresourceRange.layerCount = 1;
+		imageViewCreateInfo.subresourceRange.levelCount = 1;
+		imageViewCreateInfo.image = depthStencil.image;
+		imageViewCreateInfo.format = depthFormat;
+		vkCreateImageView(device, &imageViewCreateInfo, nullptr, &depthStencil.view);
+	}
+
+	void setupFrameBuffer() override
+	{
+		frameBuffers.resize(swapChain.imageCount);
+		for (int i = 0; i < frameBuffers.size(); i++)
+		{
+			VkImageView attachments[2];
+			attachments[0] = swapChain.buffers[i].view;
+			attachments[1] = depthStencil.view;
+
+			VkFramebufferCreateInfo frameBufferCreateInfo = {};
+			frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			frameBufferCreateInfo.width = width;
+			frameBufferCreateInfo.height = height;
+			frameBufferCreateInfo.attachmentCount = 2;
+			frameBufferCreateInfo.pAttachments = attachments;
+			frameBufferCreateInfo.layers = 1;
+			frameBufferCreateInfo.renderPass = renderPass;
+			
+			vkCreateFramebuffer(device, &frameBufferCreateInfo, nullptr, &frameBuffers[i]);
+		}
+	}
+
+	void setupRenderPass() override
+	{
+		VkAttachmentDescription attachments[2] = { {},{} };
+		//color attachment
+		attachments[0].format = swapChain.colorFormat;
+		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		//depth attachment
+		attachments[1].format = depthFormat;
+		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference colorRef = {};
+		colorRef.attachment = 0;
+		colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthRef = {};
+		colorRef.attachment = 1;
+		colorRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpassDescription = {};
+		subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpassDescription.colorAttachmentCount = 1;
+		subpassDescription.pColorAttachments = &colorRef;
+		subpassDescription.pDepthStencilAttachment = &depthRef;
+		subpassDescription.inputAttachmentCount = 0;
+		subpassDescription.pInputAttachments = nullptr;
+		subpassDescription.preserveAttachmentCount = 0;
+		subpassDescription.pPreserveAttachments = nullptr;
+
+		VkSubpassDependency dependencies[2] = { {},{} };
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		dependencies[1].srcSubpass = 0;
+		dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		VkRenderPassCreateInfo renderPassCreateInfo = {};
+		renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassCreateInfo.dependencyCount = 2;
+		renderPassCreateInfo.pDependencies = dependencies;
+		renderPassCreateInfo.attachmentCount = 2;
+		renderPassCreateInfo.pAttachments = attachments;
+		renderPassCreateInfo.subpassCount = 1;
+		renderPassCreateInfo.pSubpasses = &subpassDescription;
+
+		VK_CHECK_RESULT( vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &renderPass) );
+	}
+
+	VkShaderModule loadShader(const std::string& path)
+	{
+		size_t shaderSize;
+		char *shaderCode = nullptr;
+
+		std::ifstream fs(path, std::ios::in | std::ios::binary | std::ios::ate);
+		if (fs.is_open())
+		{
+			shaderSize = fs.tellg();
+			fs.seekg(0, std::ios::beg);
+			shaderCode = new char[shaderSize];
+			
+			fs.read(shaderCode, shaderSize);
+			fs.close();
+			assert(shaderSize > 0);
+		}
+
+		if (shaderCode) {
+			VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
+			shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+			shaderModuleCreateInfo.codeSize = shaderSize;
+			shaderModuleCreateInfo.pCode = reinterpret_cast<uint32_t*>(shaderCode);
+
+			VkShaderModule shaderModule;
+
+			vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &shaderModule);
+			delete[] shaderCode;
+			return shaderModule;
+		}
+		else
+		{
+			std::cerr << "Error: Could not open shader file \"" << path << "\"" << std::endl;
+			return VK_NULL_HANDLE;
+		}
+	}
+
+	void preparePipeLines()
+	{
+		VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
+		pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		//pipelineCreateInfo.subpass 
 	}
 };
 #if defined(_WIN32)
@@ -325,7 +628,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 {
 	char arr[4] = { 'a','b','c','d' };
 	char str[200] = { 0 };
-	sprintf(str, "%s %c", VK_EXAMPLE_DATA_DIR, *((char *)&arr));
+	sprintf(str, "%s %c", VK_EXAMPLE_DATA_DIR, *(arr + 1));
 	MessageBoxA(0, str, "Tip", MB_OK);
 	return 0;
 }
