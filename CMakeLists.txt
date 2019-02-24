@@ -20,8 +20,12 @@ if(WIN32)
 
 add_definitions(-DVK_EXAMPLE_DATA_DIR=\"${CMAKE_SOURCE_DIR}/data/\")
 add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
-SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Release/3rd_party/base/base.lib")
 
+	if(${CMAKE_BUILD_TYPE} STREQUAL "Release" )
+		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Release/3rd_party/base/base.lib")
+	else()
+		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Debug/3rd_party/base/base.lib")
+	endif()
 endif()
 
 
