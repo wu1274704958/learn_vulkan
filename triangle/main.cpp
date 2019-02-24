@@ -506,7 +506,7 @@ private:
 
 	virtual void setupRenderPass() override
 	{
-		std::array<VkAttachmentDescription, 2> attachments = {};
+		VkAttachmentDescription attachments[2] = { {},{} };
 		//color attachment
 		attachments[0].format = swapChain.colorFormat;
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -527,27 +527,25 @@ private:
 		attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		VkAttachmentReference colorReference = {};
-		colorReference.attachment = 0;
-		colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; //
+		VkAttachmentReference colorRef = {};
+		colorRef.attachment = 0;
+		colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-		VkAttachmentReference depthReference = {};
-		depthReference.attachment = 1;
-		depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		VkAttachmentReference depthRef = {};
+		depthRef.attachment = 1;
+		depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDescription subpassDescription = {};
 		subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpassDescription.colorAttachmentCount = 1;
-		subpassDescription.pColorAttachments = &colorReference;
-		subpassDescription.pDepthStencilAttachment = &depthReference;
+		subpassDescription.pColorAttachments = &colorRef;
+		subpassDescription.pDepthStencilAttachment = &depthRef;
 		subpassDescription.inputAttachmentCount = 0;
 		subpassDescription.pInputAttachments = nullptr;
 		subpassDescription.preserveAttachmentCount = 0;
 		subpassDescription.pPreserveAttachments = nullptr;
-		subpassDescription.pResolveAttachments = nullptr;
 
-		std::array<VkSubpassDependency, 2> dependencies;
-		dependencies[0] = {};
+		VkSubpassDependency dependencies[2] = { {},{} };
 		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependencies[0].dstSubpass = 0;
 		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -556,7 +554,6 @@ private:
 		dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-		dependencies[1] = {};
 		dependencies[1].srcSubpass = 0;
 		dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
 		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -567,14 +564,14 @@ private:
 
 		VkRenderPassCreateInfo renderPassCreateInfo = {};
 		renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-		renderPassCreateInfo.pDependencies = dependencies.data();
-		renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		renderPassCreateInfo.pAttachments = attachments.data();
+		renderPassCreateInfo.dependencyCount = 2;
+		renderPassCreateInfo.pDependencies = dependencies;
+		renderPassCreateInfo.attachmentCount = 2;
+		renderPassCreateInfo.pAttachments = attachments;
 		renderPassCreateInfo.subpassCount = 1;
 		renderPassCreateInfo.pSubpasses = &subpassDescription;
 
-		VK_CHECK_RESULT( vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &renderPass) );
+		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &renderPass));
 	}
 
 	VkShaderModule loadSPIRVShader(const std::string& path)
@@ -695,15 +692,13 @@ private:
 		vertexInputStateCreateInfo.vertexAttributeDescriptionCount = 2;
 		vertexInputStateCreateInfo.pVertexAttributeDescriptions = vertexInputAttributeDescription;
 
-		VkPipelineShaderStageCreateInfo shaderStageCreateInfos[2];
+		VkPipelineShaderStageCreateInfo shaderStageCreateInfos[2] = { {},{} };
 
-		shaderStageCreateInfos[0] = {};
 		shaderStageCreateInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		shaderStageCreateInfos[0].pName = "main";
 		shaderStageCreateInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 		shaderStageCreateInfos[0].module = loadSPIRVShader(getAssetPath() + "shaders/triangle/triangle.vert.spv");
 
-		shaderStageCreateInfos[1] = {};
 		shaderStageCreateInfos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		shaderStageCreateInfos[1].pName = "main";
 		shaderStageCreateInfos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
