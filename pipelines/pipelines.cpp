@@ -5,19 +5,21 @@
 #include <vulkan/vulkan.h>
 #include <vulkanexamplebase.h>
 
+class Example : public VulkanExampleBase {
 
+};
 
 #if defined(_WIN32)
 
-//Triangle *triangle;
-//LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-//{
-//	if (triangle != NULL)
-//	{
-//		triangle->handleMessages(hWnd, uMsg, wParam, lParam);
-//	}
-//	return (DefWindowProc(hWnd, uMsg, wParam, lParam));
-//}
+Example *example;
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	if (example != NULL)
+	{
+		example->handleMessages(hWnd, uMsg, wParam, lParam);
+	}
+	return (DefWindowProc(hWnd, uMsg, wParam, lParam));
+}
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
