@@ -38,6 +38,7 @@ message("${GLFW3_FOUND} ${VULKAN_FOUND} ${GLM_FOUND}")
 add_subdirectory(3rd_party/base)
 add_subdirectory(test_libbase)
 add_subdirectory(triangle)
+add_subdirectory(pipelines)
 
 if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 	
