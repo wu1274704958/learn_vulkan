@@ -29,7 +29,7 @@ class Example : public VulkanExampleBase {
 		glm::mat4 projection;
 		glm::mat4 modelView;
 		glm::vec4 lightPos = glm::vec4(0.0f, 2.0f, 1.0f, 0.0f);
-	} vboVS;
+	} uboVS;
 
 	VkPipelineLayout pipelineLayout;
 	VkDescriptorSetLayout descriptorSetLayout;
@@ -226,7 +226,101 @@ class Example : public VulkanExampleBase {
 			dynamicStates, 3
 		);
 
+		VkGraphicsPipelineCreateInfo pipelineInfo = pipelineCreateInfo(pipelineLayout, renderPass);
 
+		std::array<VkPipelineShaderStageCreateInfo,2> shaderStageInfos;
+
+		pipelineInfo.pInputAssemblyState = &inputAssemblyStateInfo;
+		pipelineInfo.pRasterizationState = &rasterizationStateInfo;
+		pipelineInfo.pColorBlendState = &blendStateInfo;
+		pipelineInfo.pMultisampleState = &multisampleStateInfo;
+		pipelineInfo.pViewportState = &viewPortStateInfo;
+		pipelineInfo.pDepthStencilState = &depthStencilStateInfo;
+		pipelineInfo.pDynamicState = &dynamicStateInfo;
+		pipelineInfo.stageCount = shaderStageInfos.size();
+		pipelineInfo.pStages = shaderStageInfos.data();
+
+
+		std::vector<VkVertexInputBindingDescription> vertexInputBindingDesc = {
+			vertexInputBindingDescription(VERTEX_BUFFER_BIND_ID,vertexLayout.stride(),VK_VERTEX_INPUT_RATE_VERTEX)
+		};
+
+		std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDesc = {
+			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,0),
+			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,sizeof(float) * 3),
+			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32_SFLOAT,sizeof(float) * 6),
+			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,sizeof(float) * 8)
+		};
+
+		VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = pipelineVertexInputStateCreateInfo();
+		vertexInputStateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputBindingDesc.size());
+		vertexInputStateInfo.pVertexBindingDescriptions = vertexInputBindingDesc.data();
+		vertexInputStateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputAttributeDesc.size());
+		vertexInputStateInfo.pVertexAttributeDescriptions = vertexInputAttributeDesc.data();
+
+		pipelineInfo.pVertexInputState = &vertexInputStateInfo;
+
+		// We are using this pipeline as the base for the other pipelines (derivatives)
+		// Pipeline derivatives can be used for pipelines that share most of their state
+		// Depending on the implementation this may result in better performance for pipeline 
+		// switchting and faster creation time
+		pipelineInfo.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
+
+		shaderStageInfos[0] = loadShader(getAssetPath() + "shaders/pipelines/phong.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		shaderStageInfos[1] = loadShader(getAssetPath() + "shaders/pipelines/phong.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+		VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineInfo, nullptr, &pipelines.phong));
+		// All pipelines created after the base pipeline will be derivatives
+		pipelineInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;
+		// Base pipeline will be our first created pipeline
+		pipelineInfo.basePipelineHandle = pipelines.phong;
+		// It's only allowed to either use a handle or index for the base pipeline
+		// As we use the handle, we must set the index to -1 (see section 9.5 of the specification)
+		pipelineInfo.basePipelineIndex = -1;
+
+		//toon pipeline
+		shaderStageInfos[0] = loadShader(getAssetPath() + "shaders/pipelines/toon.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		shaderStageInfos[1] = loadShader(getAssetPath() + "shaders/pipelines/toon.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+		VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineInfo, nullptr, &pipelines.toon));
+		// Pipeline for wire frame rendering
+		// Non solid rendering is not a mandatory Vulkan feature
+		if (deviceFeatures.fillModeNonSolid)
+		{
+			rasterizationStateInfo.polygonMode = VK_POLYGON_MODE_LINE;
+			shaderStageInfos[0] = loadShader(getAssetPath() + "shaders/pipelines/wireframe.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+			shaderStageInfos[1] = loadShader(getAssetPath() + "shaders/pipelines/wireframe.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+			VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineInfo, nullptr, &pipelines.wireframe));
+		}
+	}
+
+	void prepareUniformBuffers()
+	{
+		VK_CHECK_RESULT(vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+			&uniformBuffer, sizeof(uboVS)
+		));
+
+		
+		updateUniformBuffers();
+	}
+
+	void updateUniformBuffers()
+	{
+		uboVS.projection = glm::perspective(glm::radians(60.0f), (float)(width / 3.0f) / (float)height, 0.1f, 256.0f);
+
+		glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, zoom));
+
+		auto model = glm::translate(glm::mat4(1.0f), cameraPos);
+		model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		uboVS.modelView = model;
+		
+		VK_CHECK_RESULT(uniformBuffer.map());
+		memcpy(uniformBuffer.mapped, &uboVS, sizeof(uboVS));
+		uniformBuffer.unmap();
 	}
 };
 
