@@ -9,7 +9,7 @@ if( VULKAN_FOUND AND GLM_FOUND AND ASSIMP_FOUND)
     include_directories(${VULKAN_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/3rd_party/stb ${ASSIMP_INCLUDE_DIR})
     add_executable(${BUILD_NAME} ${SOURCE_FILES})
     add_dependencies(triangle base)
-    target_link_libraries(${BUILD_NAME} ${VULKAN_LIBRARY} ${BASE_LIBRARY})
+    target_link_libraries(${BUILD_NAME} ${VULKAN_LIBRARY} ${BASE_LIBRARY} ${ASSIMP_LIBRARY})
 
 else()
 

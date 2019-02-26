@@ -40,13 +40,15 @@ class Example : public VulkanExampleBase {
 		VkPipeline wireframe;
 		VkPipeline toon;
 	} pipelines;
-
+public:
 	Example() : VulkanExampleBase(ENABLE_VALIDATION)
 	{
 		zoom = -10.5f;
 		rotation = glm::vec3(-25.0f, 15.0f, 0.0f);
 		title = "Pipeline state object";
 		settings.overlay = true;
+//		width = 400;
+//		height = 130;
 	}
 
 	~Example()
@@ -64,15 +66,15 @@ class Example : public VulkanExampleBase {
 		models.cube.destroy();
 		uniformBuffer.destroy();
 	}
-
+private:
 	virtual void getEnabledFeatures() override
 	{
 		if (deviceFeatures.fillModeNonSolid)
 		{
-			enabledFeatures.fillModeNonSolid = true;
+			enabledFeatures.fillModeNonSolid = VK_TRUE;
 			if (deviceFeatures.wideLines)
 			{
-				enabledFeatures.wideLines = true;
+				enabledFeatures.wideLines = VK_TRUE;
 			}
 		}
 	}
@@ -150,7 +152,7 @@ class Example : public VulkanExampleBase {
 	{
 		std::vector<VkDescriptorPoolSize> poolSize = { vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1) };
 
-		VkDescriptorPoolCreateInfo poolCreateInfo = vks::initializers::descriptorPoolCreateInfo(poolSize.size(), poolSize.data(), 2);
+		VkDescriptorPoolCreateInfo poolCreateInfo = vks::initializers::descriptorPoolCreateInfo(static_cast<uint32_t>(poolSize.size()), poolSize.data(), 2);
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &poolCreateInfo, nullptr, &descriptorPool));
 	}
 
@@ -237,7 +239,7 @@ class Example : public VulkanExampleBase {
 		pipelineInfo.pViewportState = &viewPortStateInfo;
 		pipelineInfo.pDepthStencilState = &depthStencilStateInfo;
 		pipelineInfo.pDynamicState = &dynamicStateInfo;
-		pipelineInfo.stageCount = shaderStageInfos.size();
+		pipelineInfo.stageCount = static_cast<uint32_t>(shaderStageInfos.size());
 		pipelineInfo.pStages = shaderStageInfos.data();
 
 
@@ -246,10 +248,10 @@ class Example : public VulkanExampleBase {
 		};
 
 		std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDesc = {
-			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,0),
-			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,sizeof(float) * 3),
-			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32_SFLOAT,sizeof(float) * 6),
-			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,sizeof(float) * 8)
+			vertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID,0,VK_FORMAT_R32G32B32_SFLOAT,0),
+			vertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID,1,VK_FORMAT_R32G32B32_SFLOAT,sizeof(float) * 3),
+			vertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID,2,VK_FORMAT_R32G32_SFLOAT,sizeof(float) * 6),
+			vertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID,3,VK_FORMAT_R32G32B32_SFLOAT,sizeof(float) * 8)
 		};
 
 		VkPipelineVertexInputStateCreateInfo vertexInputStateInfo = pipelineVertexInputStateCreateInfo();
@@ -301,7 +303,6 @@ class Example : public VulkanExampleBase {
 			&uniformBuffer, sizeof(uboVS)
 		));
 
-		
 		updateUniformBuffers();
 	}
 
@@ -311,16 +312,62 @@ class Example : public VulkanExampleBase {
 
 		glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, zoom));
 
-		auto model = glm::translate(glm::mat4(1.0f), cameraPos);
+		auto model = viewMatrix * glm::translate(glm::mat4(1.0f), cameraPos);
 		model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
 		model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
 		model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
 		uboVS.modelView = model;
-		
 		VK_CHECK_RESULT(uniformBuffer.map());
 		memcpy(uniformBuffer.mapped, &uboVS, sizeof(uboVS));
 		uniformBuffer.unmap();
+	}
+
+	void draw()
+	{
+		VulkanExampleBase::prepareFrame();
+
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+
+		VulkanExampleBase::submitFrame();
+	}
+public:
+	virtual void prepare() override
+	{
+		VulkanExampleBase::prepare();
+		loadAssets();
+		prepareUniformBuffers(); 
+		setupDescriptorSetLayout();
+		preparePipelines();
+		setupDescriptorPool();
+		setupDescriptorSet();
+		buildCommandBuffers();
+		prepared = true;
+	}
+
+	virtual void render() override
+	{
+		if (!prepared)
+			return;
+		draw();
+	}
+
+	virtual void viewChanged() override
+	{
+		updateUniformBuffers();
+	}
+
+	virtual void OnUpdateUIOverlay(vks::UIOverlay *overlay) override
+	{
+		if (!deviceFeatures.fillModeNonSolid)
+		{
+			if (overlay->header("Info"))
+			{
+				overlay->text("Non solid fill modes not supported!");
+			}
+		}
 	}
 };
 
@@ -338,7 +385,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-	MessageBox(NULL, "hello", "tip", MB_OK);
+	for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
+	example = new Example();
+	example->initVulkan();
+	example->setupWindow(hInstance, WndProc);
+	example->prepare();
+	example->renderLoop();
+	delete example;
 	return 0;
 }
 
