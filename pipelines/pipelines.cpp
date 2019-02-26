@@ -193,7 +193,7 @@ private:
 		VkPipelineRasterizationStateCreateInfo rasterizationStateInfo = pipelineRasterizationStateCreateInfo(
 			VK_POLYGON_MODE_FILL,
 			VK_CULL_MODE_BACK_BIT,
-			VK_FRONT_FACE_COUNTER_CLOCKWISE
+			VK_FRONT_FACE_CLOCKWISE
 		);
 
 		VkPipelineColorBlendAttachmentState blendAttachmentState = pipelineColorBlendAttachmentState(
