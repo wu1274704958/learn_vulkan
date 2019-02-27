@@ -1,5 +1,5 @@
 file(GLOB SOURCE_FILES "*.cpp")
-set(BUILD_NAME "Pipeline_state_objects")
+set(BUILD_NAME "descriptor-sets")
 include_directories(${BASE_INCLUDE_DIR} ${IMGUI_INCLUDE_DIR})
 
 if( VULKAN_FOUND AND GLM_FOUND AND ASSIMP_FOUND)

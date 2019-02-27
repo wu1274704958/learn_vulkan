@@ -39,6 +39,7 @@ add_subdirectory(3rd_party/base)
 add_subdirectory(test_libbase)
 add_subdirectory(triangle)
 add_subdirectory(pipelines)
+add_subdirectory(example/descriptorSets)
 
 if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 	
