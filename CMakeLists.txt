@@ -15,17 +15,23 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 SET(BASE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/base")
 SET(IMGUI_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/imgui")
+add_definitions(-DVK_EXAMPLE_DATA_DIR=\"${CMAKE_SOURCE_DIR}/data/\")
 
 if(WIN32)
 
-add_definitions(-DVK_EXAMPLE_DATA_DIR=\"${CMAKE_SOURCE_DIR}/data/\")
-add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
+	add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
 
 	if(${CMAKE_BUILD_TYPE} STREQUAL "Release" )
 		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Release/3rd_party/base/base.lib")
 	else()
 		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Debug/3rd_party/base/base.lib")
 	endif()
+
+elseif(USE_D2D_WSI)
+
+	find_package(XCB REQUIRED)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR")
+
 endif()
 
 

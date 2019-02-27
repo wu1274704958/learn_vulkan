@@ -826,13 +826,27 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 	return 0;
 }
 
-#else
+#elif defined(__linux__)
 
-int main()
+// Linux entry point
+Triangle *triangle;
+static void handleEvent(const xcb_generic_event_t *event)
 {
-
+	if (triangle != NULL)
+	{
+		triangle->handleEvent(event);
+	}
+}
+int main(const int argc, const char *argv[])
+{
+	for (size_t i = 0; i < argc; i++) { Triangle::args.push_back(argv[i]); };
+	triangle = new Triangle();
+	triangle->initVulkan();
+	triangle->setupWindow();
+	triangle->prepare();
+	triangle->renderLoop();
+	delete triangle;
 	return 0;
 }
-
-#endif // 
+#endif
 

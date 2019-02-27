@@ -395,11 +395,26 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 	return 0;
 }
 
-#else
+#elif defined(__linux__)
 
-int main()
+// Linux entry point
+Example *example;
+static void handleEvent(const xcb_generic_event_t *event)
 {
+	if (example != NULL)
+	{
+		example->handleEvent(event);
+	}
+}
+int main(const int argc, const char *argv[])
+{
+	for (size_t i = 0; i < argc; i++) { Example::args.push_back(argv[i]); };
+	example = new Example();
+	example->initVulkan();
+	example->setupWindow();
+	example->prepare();
+	example->renderLoop();
+	delete example;
 	return 0;
 }
-
-#endif // 
+#endif 
