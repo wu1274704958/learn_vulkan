@@ -7,7 +7,8 @@ if(WIN32)
 
 else()
 
-    add_compile_options("-std:c++17")
+    add_compile_options("-std=c++17")
+	set(USE_D2D_WSI TRUE)
 
 endif()
 
@@ -29,6 +30,14 @@ if(WIN32)
 
 elseif(USE_D2D_WSI)
 
+	if(${CMAKE_BUILD_TYPE} STREQUAL "Release" )
+		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/cmake-build-release/3rd_party/base/libbase.a")
+	else()
+		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/cmake-build-debug/3rd_party/base/libbase.a")
+	endif()
+
+	message(${BASE_LIBRARY})
+	message("USE_D2D_WSI = TRUE")
 	find_package(XCB REQUIRED)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR")
 

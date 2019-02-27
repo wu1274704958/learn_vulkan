@@ -43,7 +43,18 @@ if(WIN32)
 
 else(WIN32)
 
-    message("Not Windows!")
+    find_path( ASSIMP_INCLUDE_DIR assimp "/usr/include" )
+    find_library( ASSIMP_LIBRARY assimp  "/usr/lib/x86_64-linux-gnu/")
+
+    if( ASSIMP_INCLUDE_DIR AND ASSIMP_LIBRARY)
+
+        set( ASSIMP_FOUND TRUE )
+
+    else()
+
+        set( ASSIMP_FOUND FALSE )
+
+    endif()
 
 endif(WIN32)
 

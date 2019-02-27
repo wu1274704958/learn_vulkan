@@ -1,5 +1,7 @@
 #define GLFW_INCLUDE_VULKAN
+#ifdef WIN32
 #include <Windows.h>
+#endif
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
@@ -724,9 +726,13 @@ private:
 	}
 	void createGraphicsPipeline()
 	{
+#ifdef  WIN32
 		auto vsCode = readFile("../../shader_23/vert.spv");
 		auto fgCode = readFile("../../shader_23/frag.spv");
-
+#else
+		auto vsCode = readFile("../shader_23/vert.spv");
+		auto fgCode = readFile("../shader_23/frag.spv");
+#endif
 		VkShaderModule vsModule = createShaderModule(vsCode);
 		VkShaderModule fgModule = createShaderModule(fgCode);
 
@@ -754,7 +760,7 @@ private:
 		vertexInputState_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescription.size());
 		vertexInputState_info.pVertexAttributeDescriptions = attributeDescription.data();
 
-		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState_info = {};//ÊäÈë×é¼þ Ö¸¶¨Í¼Ôª
+		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState_info = {};//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ö¸ï¿½ï¿½Í¼Ôª
 		inputAssemblyState_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		inputAssemblyState_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		inputAssemblyState_info.primitiveRestartEnable = VK_FALSE;
@@ -1149,7 +1155,11 @@ private:
 	void createTextureImage()
 	{
 		int texWidth, texHeight, texChannel;
+#ifdef WIN32
 		stbi_uc* pixels =  stbi_load("../../textures/texture.jpg", &texWidth, &texHeight, &texChannel, STBI_rgb_alpha);
+#else
+		stbi_uc* pixels =  stbi_load("../textures/texture.jpg", &texWidth, &texHeight, &texChannel, STBI_rgb_alpha);
+#endif
 		if (!pixels)
 		{
 			throw std::runtime_error("failed to load image!");
@@ -1303,10 +1313,14 @@ int main()
 		catch (const std::runtime_error& e)
 		{
 			std::cout << e.what();
+#ifdef WIN32
 			system("pause");
+#endif
 			return -1;
 		}
 	}
+#ifdef WIN32
 	system("pause");
+#endif
 	return 0;
 }

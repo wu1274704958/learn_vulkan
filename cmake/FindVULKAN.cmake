@@ -32,6 +32,18 @@ if(WIN32)
 else()
 
     message("Not Windows!")
+    find_path( VULKAN_INCLUDE_DIR vulkan "/usr/include" )
+    find_library( VULKAN_LIBRARY  vulkan "/usr/lib/x86_64-linux-gnu/")
+
+    if( VULKAN_INCLUDE_DIR AND VULKAN_LIBRARY)
+
+        set( VULKAN_FOUND TRUE )
+
+    else()
+
+        set( VULKAN_FOUND FALSE )
+
+    endif()
 
 endif()
 
