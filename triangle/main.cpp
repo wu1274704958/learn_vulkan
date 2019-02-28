@@ -22,6 +22,8 @@ public:
 
 	~Triangle()
 	{
+
+
 		vkDestroyPipeline(device, pipeline, nullptr);
 
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
@@ -39,7 +41,7 @@ public:
 		vkDestroySemaphore(device, presentSemaphore, nullptr);
 		vkDestroySemaphore(device, renderSemaphore, nullptr);
 
-		for (auto fence : waitFences)
+		for (auto& fence : waitFences)
 		{
 			vkDestroyFence(device, fence, nullptr);
 		}
@@ -74,11 +76,11 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkDescriptorSet descriptorSet;
 	
-	//用于协调图形队列中的操作并确保正确的命令顺序
+
 	VkSemaphore presentSemaphore;
 	VkSemaphore renderSemaphore;
 
-	//用于检查队列操作的完成情况（例如命令缓冲区执行）
+
 	std::vector<VkFence> waitFences;
 
 	uint32_t getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags property)
@@ -244,9 +246,10 @@ private:
 		auto result = swapChain.queuePresent(queue, currentBuffer, renderSemaphore);
 		if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
 		{
-			swapChain.create(&width, &height);
+
+		}else{
+			VK_CHECK_RESULT(result);
 		}
-		VK_CHECK_RESULT(result);
 	}
 
 	void prepareVertices(bool useStageBuffers)
@@ -353,6 +356,12 @@ private:
 			vkCmdCopyBuffer(copycmd, stagingBuffers.indices.buffer, indeices.buffer, 1, &copyRegion);
 
 			flushCommandBuffer(copycmd);
+
+			vkDestroyBuffer(device, stagingBuffers.vertices.buffer, nullptr);
+			vkFreeMemory(device, stagingBuffers.vertices.memory, nullptr);
+
+			vkDestroyBuffer(device, stagingBuffers.indices.buffer, nullptr);
+			vkFreeMemory(device, stagingBuffers.indices.memory, nullptr);
 		}
 		else {
 			VkBufferCreateInfo bufferCreateInfo = {};
@@ -788,6 +797,7 @@ private:
 		if (!prepared)
 			return;
 		draw();
+
 	}
 
 	virtual void viewChanged() override {
