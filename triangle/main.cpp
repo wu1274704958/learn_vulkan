@@ -240,7 +240,13 @@ private:
 		submitInfo.commandBufferCount = 1;
 
 		VK_CHECK_RESULT( vkQueueSubmit(queue, 1, &submitInfo, waitFences[currentBuffer]) );
-		VK_CHECK_RESULT( swapChain.queuePresent(queue, currentBuffer, renderSemaphore) );
+		
+		auto result = swapChain.queuePresent(queue, currentBuffer, renderSemaphore);
+		if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+		{
+			swapChain.create(&width, &height);
+		}
+		VK_CHECK_RESULT(result);
 	}
 
 	void prepareVertices(bool useStageBuffers)
