@@ -282,6 +282,9 @@ private:
 		vkFreeMemory(device, vertexBufferMem, nullptr);
 		vkDestroyBuffer(device, vertexBuffer, nullptr);
 
+		vkFreeMemory(device, textureImageMem, nullptr);
+		vkDestroyImage(device, textureImag, nullptr);
+
 		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
 		vkDestroyCommandPool(device, commandPool, nullptr);
@@ -1051,7 +1054,7 @@ private:
 
 		VkMemoryAllocateInfo alloc_info = {};
 		alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		alloc_info.allocationSize = size;
+		alloc_info.allocationSize = memRequirments.size;
 		alloc_info.memoryTypeIndex = findMemoryType(memRequirments.memoryTypeBits, memProperty);
 
 		if (vkAllocateMemory(device, &alloc_info, nullptr, &mem) != VK_SUCCESS)
@@ -1182,6 +1185,9 @@ private:
 		createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 			, textureImag, textureImageMem
 		);
+
+		vkFreeMemory(device,stagingBufferMem, nullptr);
+		vkDestroyBuffer(device,stagingBuffer, nullptr);
 		
 	}
 	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,

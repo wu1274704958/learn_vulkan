@@ -358,7 +358,8 @@ public:
 		auto result = swapChain.queuePresent(queue, currentBuffer, renderCompleteSemaphore);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
 		{
-			swapChain.create(&width, &height);
+			return;
+			//swapChain.create(&width, &height);
 		}
 		VK_CHECK_RESULT(result);
 	}
