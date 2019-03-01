@@ -69,6 +69,7 @@ add_subdirectory(test_libbase)
 add_subdirectory(triangle)
 add_subdirectory(pipelines)
 add_subdirectory(example/descriptorSets)
+add_subdirectory(example/dynamic-uniform-buffer)
 
 if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 	
