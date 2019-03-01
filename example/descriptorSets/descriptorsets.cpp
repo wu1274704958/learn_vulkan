@@ -35,7 +35,7 @@ public:
 
 	virtual void getEnabledFeatures() override
 	{
-		if (vulkanDevice->features.samplerAnisotropy)
+		if (deviceFeatures.samplerAnisotropy)
 		{
 			enabledFeatures.samplerAnisotropy = VK_TRUE;
 		}
@@ -149,7 +149,7 @@ public:
 		VkPipelineLayoutCreateInfo pipelineLayoutCI = pipelineLayoutCreateInfo(&descriptorSetLayout);
 		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCI, nullptr, &pipelineLayout));
 
-		VkGraphicsPipelineCreateInfo pipelineCI = pipelineCreateInfo();
+		VkGraphicsPipelineCreateInfo pipelineCI = pipelineCreateInfo(pipelineLayout, renderPass);
 		
 		std::vector<VkDynamicState> dynamicStates = {
 			VK_DYNAMIC_STATE_VIEWPORT,
@@ -190,6 +190,7 @@ public:
 		pipelineCI.pViewportState = &viewportCI;
 		pipelineCI.pMultisampleState = &multisampleCI;
 		pipelineCI.pVertexInputState = &vertexInputStateCI;
+	
 
 		std::array<VkPipelineShaderStageCreateInfo, 2> shaderModules = {
 			loadShader(getAssetPath() + "shaders/descriptorsets/cube.vert.spv",VK_SHADER_STAGE_VERTEX_BIT),
@@ -262,13 +263,14 @@ public:
 
 		if (animate)
 		{
-			cubes[0].rotation.x += frameTimer * 2.5f;
-			if (cubes[0].rotation.x >= 360.0f)
-				cubes[0].rotation.x = 0.0f;
+			cubes[0].rotation.x += 2.5f * frameTimer;
+			if (cubes[0].rotation.x > 360.0f)
+				cubes[0].rotation.x -= 360.0f;
+			cubes[1].rotation.y += 2.0f * frameTimer;
+			if (cubes[1].rotation.y > 360.0f)
+				cubes[1].rotation.y -= 360.0f;
 
-			cubes[1].rotation.x += frameTimer * 3.5f;
-			if (cubes[1].rotation.x >= 360.0f)
-				cubes[1].rotation.x = 0.0f;
+			//std::cout << cubes[0].rotation.y << "  " << frameTimer << std::endl;
 		}
 
 		if (animate || camera.updated)
@@ -302,7 +304,7 @@ private:
 		VkDescriptorSet descriptorSet;
 		vks::Texture2D texture;
 		vks::Buffer uniformBuffer;
-		glm::vec3 rotation;
+		glm::vec3 rotation = glm::vec3(0.0f,0.0f,0.0f);
 	};
 
 	std::array<Cube, 2> cubes;

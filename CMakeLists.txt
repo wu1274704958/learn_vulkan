@@ -25,25 +25,38 @@ if(WIN32)
 
 	if(${CMAKE_BUILD_TYPE} STREQUAL "Release" )
 		find_library( BASE_LIBRARY base "${CMAKE_SOURCE_DIR}/build/x64-Release/3rd_party/base")
+		if(NOT BASE_LIBRARY)
+			set(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Release/3rd_party/base/base.lib")
+		endif()
 	else()
 		find_library( BASE_LIBRARY base "${CMAKE_SOURCE_DIR}/build/x64-Debug/3rd_party/base")
+		if(NOT BASE_LIBRARY)
+			set(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Debug/3rd_party/base/base.lib")
+		endif()
 	endif()
 
 elseif(USE_D2D_WSI)
 
 	if(${CMAKE_BUILD_TYPE} STREQUAL "Release" )
 		find_library( BASE_LIBRARY base "{CMAKE_SOURCE_DIR}/cmake-build-release/3rd_party/base")
+		if(NOT BASE_LIBRARY)
+			set(BASE_LIBRARY "{CMAKE_SOURCE_DIR}/cmake-build-release/3rd_party/base/libbase.a")
+		endif()
 	else()
 		find_library( BASE_LIBRARY base "{CMAKE_SOURCE_DIR}/cmake-build-debug/3rd_party/base")
+		if(NOT BASE_LIBRARY)
+			set(BASE_LIBRARY "{CMAKE_SOURCE_DIR}/cmake-build-debug/3rd_party/base/libbase.a")
+		endif()
 	endif()
 
-	message(${BASE_LIBRARY})
+	
 	message("USE_D2D_WSI = TRUE")
 	find_package(XCB REQUIRED)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR")
 
 endif()
 
+message("BASE_LIBRARY = ${BASE_LIBRARY}")
 
 find_package(GLM)
 find_package(GLFW3)
