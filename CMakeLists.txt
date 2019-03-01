@@ -16,6 +16,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 SET(BASE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/base")
 SET(IMGUI_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/imgui")
+SET(GLI_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/gli")
 add_definitions(-DVK_EXAMPLE_DATA_DIR=\"${CMAKE_SOURCE_DIR}/data/\")
 
 if(WIN32)
@@ -23,17 +24,17 @@ if(WIN32)
 	add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
 
 	if(${CMAKE_BUILD_TYPE} STREQUAL "Release" )
-		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Release/3rd_party/base/base.lib")
+		find_library( BASE_LIBRARY base "${CMAKE_SOURCE_DIR}/build/x64-Release/3rd_party/base")
 	else()
-		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/build/x64-Debug/3rd_party/base/base.lib")
+		find_library( BASE_LIBRARY base "${CMAKE_SOURCE_DIR}/build/x64-Debug/3rd_party/base")
 	endif()
 
 elseif(USE_D2D_WSI)
 
 	if(${CMAKE_BUILD_TYPE} STREQUAL "Release" )
-		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/cmake-build-release/3rd_party/base/libbase.a")
+		find_library( BASE_LIBRARY base "{CMAKE_SOURCE_DIR}/cmake-build-release/3rd_party/base")
 	else()
-		SET(BASE_LIBRARY "${CMAKE_SOURCE_DIR}/cmake-build-debug/3rd_party/base/libbase.a")
+		find_library( BASE_LIBRARY base "{CMAKE_SOURCE_DIR}/cmake-build-debug/3rd_party/base")
 	endif()
 
 	message(${BASE_LIBRARY})
