@@ -293,7 +293,7 @@ namespace vks
 	bool UIOverlay::update()
 	{
 		ImDrawData* imDrawData = ImGui::GetDrawData();
-		bool updateCmdBuffers = false;
+		bool updateCmdBuffers = true;
 
 		if (!imDrawData) { return false; };
 
