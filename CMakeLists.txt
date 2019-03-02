@@ -12,6 +12,8 @@ else()
 
 endif()
 
+include_directories(${CMAKE_SOURCE_DIR})
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 SET(BASE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/base")
