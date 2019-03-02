@@ -301,6 +301,8 @@ public:
 		uint32_t dim = static_cast<uint32_t>(pow(OBJECT_INSTANCES, (1.0f / 3.0f)));
 		std::cout << "dim = "<< dim << std::endl;
 		glm::vec3 offset(5.0f);
+		auto offset_1_2 = 0.5f * offset;
+		auto first_pos = -(static_cast<float>(dim) * offset_1_2);
 
 		for (uint32_t x = 0; x < dim; x++)
 		{
@@ -317,7 +319,10 @@ public:
 					rotations[index] += animationTimer * rotationSpeeds[index];
 
 					// Update matrices
-					glm::vec3 pos = glm::vec3(-((dim * offset.x) / 2.0f) + offset.x / 2.0f + x * offset.x, -((dim * offset.y) / 2.0f) + offset.y / 2.0f + y * offset.y, -((dim * offset.z) / 2.0f) + offset.z / 2.0f + z * offset.z);
+					glm::vec3 pos = glm::vec3(	first_pos.x + offset_1_2.x + x * offset.x, 
+												first_pos.y + offset_1_2.y + y * offset.y,
+												first_pos.z + offset_1_2.z + z * offset.z
+					);
 					*modelMat = glm::translate(glm::mat4(1.0f), pos);
 					*modelMat = glm::rotate(*modelMat, rotations[index].x, glm::vec3(1.0f, 1.0f, 0.0f));
 					*modelMat = glm::rotate(*modelMat, rotations[index].y, glm::vec3(0.0f, 1.0f, 0.0f));
