@@ -7,7 +7,7 @@ namespace wws {
 #if defined(WIN32)
 		return (T *)_aligned_malloc(size, alignment);
 #elif defined(__linux__)
-		return (T *)std::aligned_malloc(alignment, size);
+		return (T *)std::aligned_alloc(alignment, size);
 #endif
 	}
 

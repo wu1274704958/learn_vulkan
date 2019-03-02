@@ -106,10 +106,9 @@ public:
 	{
 		VulkanExampleBase::prepareFrame();
 
-		auto submitI = vks::initializers::submitInfo();
-		submitI.commandBufferCount = 1;
-		submitI.pCommandBuffers = &drawCmdBuffers[currentBuffer];
-		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitI, VK_NULL_HANDLE));
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 		VulkanExampleBase::submitFrame();
 	}
@@ -299,7 +298,7 @@ public:
 
 		// Dynamic ubo with per-object model matrices indexed by offsets in the command buffer
 		uint32_t dim = static_cast<uint32_t>(pow(OBJECT_INSTANCES, (1.0f / 3.0f)));
-		std::cout << "dim = "<< dim << std::endl;
+		//std::cout << "dim = "<< dim << std::endl;
 		glm::vec3 offset(5.0f);
 		auto offset_1_2 = 0.5f * offset;
 		auto first_pos = -(static_cast<float>(dim) * offset_1_2);
