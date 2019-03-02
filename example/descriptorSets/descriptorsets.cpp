@@ -85,8 +85,8 @@ public:
 
 			drawUI(drawCmdBuffers[i]);
 
-			vkEndCommandBuffer(drawCmdBuffers[i]);
 			vkCmdEndRenderPass(drawCmdBuffers[i]);
+			vkEndCommandBuffer(drawCmdBuffers[i]);
 		}
 	}
 
@@ -237,10 +237,10 @@ public:
 	void draw()
 	{
 		VulkanExampleBase::prepareFrame();
-		VkSubmitInfo submitI = vks::initializers::submitInfo();
-		submitI.commandBufferCount = 1;
-		submitI.pCommandBuffers = &drawCmdBuffers[currentBuffer];
-		VK_CHECK_RESULT( vkQueueSubmit(queue, 1, &submitI, VK_NULL_HANDLE) );
+
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+		VK_CHECK_RESULT( vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE) );
 		VulkanExampleBase::submitFrame();
 	}
 
