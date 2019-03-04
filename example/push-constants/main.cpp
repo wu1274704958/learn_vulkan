@@ -219,7 +219,7 @@ public:
 	{
 		VK_CHECK_RESULT(uniformBuffer.map());
 
-		uboVS.projection = glm::perspective(60.0f, (float)width / (float)height, 0.1f, 512.0f);
+		uboVS.projection = glm::perspective(glm::radians(60.0f), (float)width / (float)height, 0.1f, 512.0f);
 		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, zoom));
 		glm::mat4 model = view * glm::translate(glm::mat4(1.0f),glm::vec3(0.0f,0.0f,0.0f));
 
