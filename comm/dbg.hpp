@@ -47,72 +47,30 @@ namespace wws{
 		static constexpr bool val = decltype(func<T>(0))::value;
 	};
 
-	template <typename T>
-	struct Tv {
-		using type = T;
-		static constexpr bool val = true;
-		T t;
-		Tv(T t_) : t(t_)
-		{
+	struct V{
 
-		}
-	};
-
-	template <>
-	struct Tv<void> {
-		using type = void;
-		static constexpr bool val = false;
-		Tv(int i)
-		{
-
-		}
 	};
 
 	template<typename T>
-	auto dbg_func(const char *expr, Tv<T>&& tv) -> T
+	auto dbg_func(const char *expr, T&& t) -> T
 	{
-		if constexpr (Tv<T>::val)
+		if constexpr (can_cout<T>::val)
 		{
-			if constexpr (can_cout<T>::val)
-			{
-				std::cout << expr << " = " << tv.t << std::endl;
-			}
-			else {
-				std::cout << expr << " = " << "This type can not print!!!" << std::endl;
-			}
-			return std::forward<T>(tv.t);
+			std::cout << expr << " = " << t << std::endl;
 		}
 		else {
-			std::cout << expr << " = void" << std::endl;
+			std::cout << expr << " = " << "This type can not print!!!" << std::endl;
 		}
+		return std::forward<T>(t);
 	}
 
-	template<typename ...T>
-	struct FirstArge;
-
-	template<typename T>
-	struct FirstArge<T>
-	{
-		using type = T;
-	};
-
-	template<>
-	struct FirstArge<>
-	{
-		using type = Tv<void>;
-	};
-
-	template<bool B, typename... V>
-	auto dbg_choose(const char *p, V&& ... t) -> typename FirstArge<V...>::type::type
-	{
-		if constexpr (B)
-		{
-			return dbg_func(p, std::forward<V>(t) ...);
-		}
-		else {
-			dbg_func(p, Tv<void>(1));
-		}
-	}
+    template<typename T = V>
+    auto dbg_func(const char *expr, V&& t) -> void
+    {
+        std::cout << expr << " = " << "void" << std::endl;
+        return;
+    }
 }
 
-#define dbg(expr,...)  wws::dbg_choose< wws::Tv<decltype(expr)>::val >(#expr, wws::Tv<decltype(expr)>( (expr,##__VA_ARGS__) ) )
+#define dbg(expr,...)  wws::dbg_func(#expr,(expr,##__VA_ARGS__))
+#define dbgv(expr)  dbg(expr,wws::V())
