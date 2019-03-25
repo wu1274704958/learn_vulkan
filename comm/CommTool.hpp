@@ -28,6 +28,19 @@ namespace wws {
 	{
 		const static size_t val = N;
 	};
+
+	template<typename T, size_t N>
+	struct arr_len<T(&)[N]>
+	{
+		const static size_t val = N;
+	};
+
 	template<typename T>
 	size_t arr_len_v = arr_len<T>::val;
+
+	template<typename T>
+	constexpr size_t arrLen(T&& t)
+	{
+		return arr_len_v<T>;
+	}
 }
