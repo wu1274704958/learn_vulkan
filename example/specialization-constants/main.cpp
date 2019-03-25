@@ -13,7 +13,7 @@
 
 class Example : public VulkanExampleBase {
 public:
-	virtual void render() override
+	void render() override
 	{
 		if (!prepared)
 			return;
@@ -47,7 +47,7 @@ public:
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 	}
 
-	void buildCommandBuffers()
+	void buildCommandBuffers() override
 	{
 		using namespace vks::initializers;
 
@@ -58,7 +58,7 @@ public:
 		clearVal[0].color = defaultClearColor;
 		clearVal[1].depthStencil = { 1.0f,0 };
 
-		renderPassBeginI.clearValueCount = wws::arr_len_v<decltype(clearVal)>;
+		renderPassBeginI.clearValueCount = wws::arrLen<uint32_t >(clearVal);
 		renderPassBeginI.pClearValues = clearVal;
 		renderPassBeginI.renderPass = renderPass;
 		renderPassBeginI.renderArea = { {0,0},{width,height} };
@@ -241,7 +241,7 @@ public:
 	void updateUniformBuffers()
 	{
 		uniformBuffer.map();
-
+		camera.setPerspective(60.0f, ((float)width / 3.0f) / (float)height, 0.1f, 512.0f);
 		uboVS.projection = camera.matrices.perspective;
 		uboVS.model = camera.matrices.view;
 
@@ -275,7 +275,7 @@ public:
 		prepared = true;
 	}
 
-	virtual void windowResized() override
+	void windowResized() override
 	{
 		updateUniformBuffers();
 	}
