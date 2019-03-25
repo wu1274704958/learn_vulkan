@@ -52,14 +52,14 @@ namespace wws{
 	};
 
 	template<typename T>
-	auto dbg_func(const char *expr, T&& t) -> T
+	auto dbg_func(const char *expr,const char *file,int line, T&& t) -> T
 	{
 		if constexpr (can_cout<T>::val)
 		{
-			std::cout << expr << " = " << t << std::endl;
+			std::cout << "[" << file  << ":" << line << "] " << expr << " = " << t << std::endl;
 		}
 		else {
-			std::cout << expr << " = " << "This type can not print!!!" << std::endl;
+			std::cout << "[" << file  << ":" << line << "] " << expr << " = " << "This type can not print!!!" << std::endl;
 		}
 		return std::forward<T>(t);
 	}
@@ -72,5 +72,5 @@ namespace wws{
     }
 }
 
-#define dbg(expr,...)  wws::dbg_func(#expr,(expr,##__VA_ARGS__))
+#define dbg(expr,...)  wws::dbg_func(#expr,__FILE__,__LINE__,(expr,##__VA_ARGS__))
 #define dbgv(expr)  dbg(expr,wws::V())
