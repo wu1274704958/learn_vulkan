@@ -38,9 +38,9 @@ namespace wws {
 	template<typename T>
 	size_t arr_len_v = arr_len<T>::val;
 
-	template<typename T>
-	constexpr size_t arrLen(T&& t)
+	template<typename Ret,typename T>
+	constexpr Ret arrLen(T&& t)
 	{
-		return arr_len_v<T>;
+		return static_cast<Ret>(arr_len_v<T>);
 	}
 }

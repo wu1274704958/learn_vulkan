@@ -15,7 +15,13 @@ class Example : public VulkanExampleBase {
 public:
 	virtual void render() override
 	{
-
+		if (!prepared)
+			return;
+		draw();
+		if (camera.updated)
+		{
+			updateUniformBuffers();
+		}
 	}
 
 	Example() : VulkanExampleBase(true)
@@ -61,9 +67,11 @@ public:
 
 		for (uint32_t i = 0; i < drawCmdBuffers.size(); ++i)
 		{
+			renderPassBeginI.framebuffer = frameBuffers[i];
 			vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufferBeginI);
 
 			vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginI, VK_SUBPASS_CONTENTS_INLINE);
+			
 
 			auto vp = viewport(width_1_3, (float)height, 0.0f, 1.0f);
 
@@ -131,7 +139,7 @@ public:
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1),
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1)
 		};
-		auto poolCI = vks::initializers::descriptorPoolCreateInfo(wws::arrLen(sizes), sizes, 2);
+		auto poolCI = vks::initializers::descriptorPoolCreateInfo(wws::arrLen<uint32_t>(sizes), sizes, 2);
 		vkCreateDescriptorPool(device, &poolCI, nullptr, &descriptorPool);
 	}
 
@@ -143,7 +151,7 @@ public:
 			descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)
 		};
 
-		auto setLayoutCI = descriptorSetLayoutCreateInfo(setLayoutBindings, wws::arrLen(setLayoutBindings));
+		auto setLayoutCI = descriptorSetLayoutCreateInfo(setLayoutBindings, wws::arrLen<uint32_t>(setLayoutBindings));
 		vkCreateDescriptorSetLayout(device, &setLayoutCI, nullptr, &descriptorSetLayout);
 
 		auto pipelineLayoutCI = pipelineLayoutCreateInfo(&descriptorSetLayout);
@@ -159,7 +167,7 @@ public:
 			vks::initializers::writeDescriptorSet(descriptorSet,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,0,&uniformBuffer.descriptor),
 			vks::initializers::writeDescriptorSet(descriptorSet,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1,&textures.colormap.descriptor)
 		};
-		vkUpdateDescriptorSets(device, wws::arrLen(writeDescSets), writeDescSets, 0, nullptr);
+		vkUpdateDescriptorSets(device, wws::arrLen<uint32_t>(writeDescSets), writeDescSets, 0, nullptr);
 	}
 
 	void preparePipelines()
@@ -179,7 +187,7 @@ public:
 			VK_DYNAMIC_STATE_LINE_WIDTH
 		};
 
-		auto dynamicSCI = pipelineDynamicStateCreateInfo(dynamicSs, wws::arrLen(dynamicSs));
+		auto dynamicSCI = pipelineDynamicStateCreateInfo(dynamicSs, wws::arrLen<uint32_t>(dynamicSs));
 		VkPipelineShaderStageCreateInfo shaderStages[2] = {};
 
 		auto pipelineCI = pipelineCreateInfo(pipelineLayout, renderPass);
@@ -192,7 +200,7 @@ public:
 		pipelineCI.pMultisampleState = &multisampleSCI;
 		pipelineCI.pStages = shaderStages;
 		pipelineCI.pViewportState = &vpSCI;
-		pipelineCI.stageCount = wws::arrLen(shaderStages);
+		pipelineCI.stageCount = wws::arrLen<uint32_t>(shaderStages);
 		pipelineCI.pVertexInputState = &vertices.inputState;
 
 		struct {
@@ -205,7 +213,7 @@ public:
 			specializationMapEntry(1,sizeof(specializationData.lightingMode),sizeof(specializationData.toonDesaturationFactor))
 		};
 
-		auto specializationI = specializationInfo(wws::arrLen(specializationMapEntrys), specializationMapEntrys, sizeof(specializationData), &specializationData);
+		auto specializationI = specializationInfo(wws::arrLen<uint32_t>(specializationMapEntrys), specializationMapEntrys, sizeof(specializationData), &specializationData);
 
 		shaderStages[0] = loadShader(getAssetPath() + "shaders/specializationconstants/uber.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 		shaderStages[1] = loadShader(getAssetPath() + "shaders/specializationconstants/uber.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -222,6 +230,55 @@ public:
 		vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.textured);
 	}
 
+	void prepareUniformBuffers()
+	{
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformBuffer, sizeof(uboVS));
+
+		updateUniformBuffers();
+	}
+
+	void updateUniformBuffers()
+	{
+		uniformBuffer.map();
+
+		uboVS.projection = camera.matrices.perspective;
+		uboVS.model = camera.matrices.view;
+
+		memcpy(uniformBuffer.mapped, &uboVS, sizeof(uboVS));
+
+		uniformBuffer.unmap();
+	}
+
+	void draw() 
+	{
+		VulkanExampleBase::prepareFrame();
+
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+		vkQueueSubmit(queue, 1, &submitInfo,VK_NULL_HANDLE);
+
+		VulkanExampleBase::submitFrame();
+	}
+
+	virtual void prepare() override 
+	{
+		VulkanExampleBase::prepare();
+		loadAssets();
+		setupVertexDescriptions();
+		prepareUniformBuffers();
+		setupDescriptorPool();
+		setupDescriptorLayout();
+		setupDescriptorSet();
+		preparePipelines();
+		buildCommandBuffers();
+		prepared = true;
+	}
+
+	virtual void windowResized() override
+	{
+		updateUniformBuffers();
+	}
 private:
 	struct 
 	{
@@ -280,16 +337,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-	/*for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
+	for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
 	example = new Example();
 	example->initVulkan();
 	example->setupWindow(hInstance, WndProc);
 	example->prepare();
 	example->renderLoop();
-	delete example;*/
-	char buf[100] = { 0 };
+	delete example;
+	/*char buf[100] = { 0 };
 	sprintf(buf, "%d", wws::arrLen(buf));
-	MessageBoxA(NULL, buf, "tip", MB_OK);
+	MessageBoxA(NULL, buf, "tip", MB_OK);*/
 	return 0;
 }
 
