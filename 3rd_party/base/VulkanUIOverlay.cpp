@@ -412,7 +412,9 @@ namespace vks
 
 	bool UIOverlay::header(const char *caption)
 	{
-		return ImGui::CollapsingHeader(caption, ImGuiTreeNodeFlags_DefaultOpen);
+		bool res = ImGui::CollapsingHeader(caption, ImGuiTreeNodeFlags_DefaultOpen);
+		if (res) { updated = true; }
+		return res;
 	}
 
 	bool UIOverlay::checkBox(const char *caption, bool *value)
