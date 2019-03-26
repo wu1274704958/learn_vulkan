@@ -51,6 +51,8 @@ public:
 	{
 		using namespace vks::initializers;
 
+		dbg("buildCommandBuffers()");
+
 		auto cmdBufferBeginI = commandBufferBeginInfo();
 		auto renderPassBeginI = renderPassBeginInfo();
 

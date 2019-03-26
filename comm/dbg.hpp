@@ -65,12 +65,12 @@ namespace wws{
 	}
 
     template<typename T = V>
-    auto dbg_func(const char *expr, V&& t) -> void
+    auto dbg_func(const char *expr,const char *file,int line, V&& t) -> void
     {
-        std::cout << expr << " = " << "void" << std::endl;
+        std::cout << "[" << file  << ":" << line << "] "<< expr << " = " << "void" << std::endl;
         return;
     }
 }
 
-#define dbg(expr,...)  wws::dbg_func(#expr,__FILE__,__LINE__,(expr,##__VA_ARGS__))
-#define dbgv(expr)  dbg(expr,wws::V())
+#define dbg(...)  wws::dbg_func(#__VA_ARGS__,__FILE__,__LINE__,(__VA_ARGS__))
+#define dbgv(...) wws::dbg_func(#__VA_ARGS__,__FILE__,__LINE__,wws::V())
