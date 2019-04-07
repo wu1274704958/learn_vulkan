@@ -6,7 +6,7 @@
 #include <vulkanexamplebase.h>
 #include <VulkanBuffer.hpp>
 #include <VulkanSwapChain.hpp>
-
+#include "vector3.hpp"
 
 class Example : public VulkanExampleBase
 {
@@ -51,7 +51,18 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 	example->prepare();
 	example->renderLoop();
 	delete example;*/
-	MessageBox(NULL, "aaaa", "tip", MB_OK);
+	DrawVec3 dv(glm::vec3(1.0f, 1.0f, 0.0f));
+
+	std::vector<DrawVec3::Vertex> res = dv.build_vertices();
+	std::string str;
+	for (auto& a : res)
+	{
+		char buf[100] = { 0 };
+		sprintf(buf,"%f %f %f\n", a.pos.x, a.pos.y, a.pos.z);
+		str += buf;
+	}
+
+	MessageBox(NULL, str.data(), "tip", MB_OK);
 	return 0;
 }
 
