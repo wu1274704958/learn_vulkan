@@ -8,6 +8,7 @@
 #include <VulkanSwapChain.hpp>
 #include "vector3.hpp"
 #include <comm/CommTool.hpp>
+#include <comm/dbg.hpp>
 
 class Example : public VulkanExampleBase
 {
@@ -60,6 +61,7 @@ public:
 			vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &vp);
 			auto scissor = rect2D(width, height, 0, 0);
 			vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
+			vkCmdSetLineWidth(drawCmdBuffers[i], 2.0);
 
 			vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 			vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
@@ -81,25 +83,38 @@ public:
 	{
 		dvs.push_back(DrawVec3(glm::vec3(1.0f, 0.0f, 0.0f)));
 		indices = dvs[0].build_indices();
-
+		setupIndexBuffer();
+		setupVertexBuffer( dbg(6  * sizeof(DrawVec3::Vertex)) );
 		for (int i = 0; i < dvs.size(); ++i)
 		{
 			updateVertexBuffer(i);
 		}
 	}
 
+	void setupIndexBuffer()
+	{
+
+	}
+
+	void setupVertexBuffer(size_t buffer_size)
+	{
+		vertexBuffers.resize(dvs.size());
+		for (int i = 0; i < dvs.size(); ++i)
+		{
+			vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				&vertexBuffers[i], static_cast<VkDeviceSize>(buffer_size));
+		}
+	}
+
 	void updateVertexBuffer(int index)
 	{	
 		vks::Buffer stageBuffer;
-		std::vector<DrawVec3::Vertex> vertices = dvs[index].build_vertices;
+		std::vector<DrawVec3::Vertex> vertices = dvs[index].build_vertices();
 
 		vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&stageBuffer, sizeof(DrawVec3::Vertex) * static_cast<VkDeviceSize>(vertices.size()), vertices.data());
-
-		vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			&vertexBuffers[index], sizeof(DrawVec3::Vertex) * static_cast<VkDeviceSize>(vertices.size()));
+			&stageBuffer, dbg( sizeof(DrawVec3::Vertex) * static_cast<VkDeviceSize>(vertices.size())) , vertices.data() );
 
 		vulkanDevice->copyBuffer(&stageBuffer, &vertexBuffers[index],queue);
 	}
@@ -157,6 +172,103 @@ public:
 		vkUpdateDescriptorSets(device, 1, &writeSetI, 0, nullptr);
 	}
 
+	void preparePipelines()
+	{
+		using namespace vks::initializers;
+
+		auto inputAssemblySCI = pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_LINE_LIST, 0, VK_FALSE);
+		auto rasterizationSCI = pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+		auto colorBlendAttachment = pipelineColorBlendAttachmentState(0xf, VK_FALSE);
+		auto colorBlendSCI = pipelineColorBlendStateCreateInfo(1, &colorBlendAttachment);
+		auto depthStencilSCI = pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+		auto vpSCI = pipelineViewportStateCreateInfo(1, 1);
+		auto multsampleSCI = pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+
+		VkDynamicState dynamicSs[] = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR,
+			VK_DYNAMIC_STATE_LINE_WIDTH
+		};
+
+		auto dynamicSCI = pipelineDynamicStateCreateInfo(dynamicSs, wws::arrLen<uint32_t>(dynamicSs));
+		VkPipelineShaderStageCreateInfo shaderStages[] = {
+			loadShader(getAssetPath() + "shaders/triangle/triangle.vert.spv",VK_SHADER_STAGE_VERTEX_BIT),
+			loadShader(getAssetPath() + "shaders/triangle/triangle.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT)
+		};
+
+		auto pipelineCI = pipelineCreateInfo(pipelineLayout, renderPass);
+		pipelineCI.stageCount = wws::arrLen<uint32_t>(shaderStages);
+		pipelineCI.pStages = shaderStages;
+
+		pipelineCI.pColorBlendState = &colorBlendSCI;
+		pipelineCI.pDepthStencilState = &depthStencilSCI;
+		pipelineCI.pDynamicState = &dynamicSCI;
+		pipelineCI.pInputAssemblyState = &inputAssemblySCI;
+		pipelineCI.pMultisampleState = &multsampleSCI;
+		pipelineCI.pRasterizationState = &rasterizationSCI;
+		pipelineCI.pVertexInputState = &vertexInputState.state;
+		pipelineCI.pViewportState = &vpSCI;
+
+		vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipeline);
+	}
+
+	void prepareUniformBuffer()
+	{
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&uniformBuffer,sizeof(uboVS));
+
+		updateUniformBuffer();
+	}
+
+	void updateUniformBuffer()
+	{
+		VK_CHECK_RESULT(uniformBuffer.map());
+
+		uboVS.projection = glm::perspective(glm::radians(60.0f), (float)width / (float)height, 0.1f, 512.0f);
+		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, zoom));
+		glm::mat4 model = view * glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+
+		model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		uboVS.model = model;
+
+		memcpy(uniformBuffer.mapped, &uboVS, sizeof(uboVS));
+
+		uniformBuffer.unmap();
+	}
+
+	void draw()
+	{
+		VulkanExampleBase::prepareFrame();
+
+		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+		submitInfo.commandBufferCount = 1;
+		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+		VulkanExampleBase::submitFrame();
+	}
+
+	void prepare()
+	{
+		VulkanExampleBase::prepare();
+		
+		prepareVertices();
+		setupVertexDescription();
+		prepareUniformBuffer();
+		setupDescriptorPool();
+		setupDescriptorLayout();
+		setupDescriptorSet();
+		preparePipelines();
+		buildCommandBuffers();
+		prepared = true;
+	}
+
+	virtual void viewChanged() override
+	{
+		updateUniformBuffer();
+	}
+
 private:
 	VkPipeline pipeline;
 	VkDescriptorSetLayout descriptorSetLayout;
@@ -177,9 +289,9 @@ private:
 	vks::Buffer indexBuffer;
 	vks::Buffer uniformBuffer;
 	struct {
-		glm::mat4 projectionMatrix;
-		glm::mat4 modelMatrix;
-		glm::mat4 viewMatrix;
+		glm::mat4 projection;
+		glm::mat4 model;
+		glm::mat4 view;
 	} uboVS;
 };
 
@@ -198,14 +310,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-	/*for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
+	for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
 	example = new Example();
 	example->initVulkan();
 	example->setupWindow(hInstance, WndProc);
 	example->prepare();
 	example->renderLoop();
-	delete example;*/
-	DrawVec3 dv(glm::vec3(1.0f, 1.0f, 0.0f));
+	delete example;
+	/*DrawVec3 dv(glm::vec3(1.0f, 1.0f, 0.0f));
 
 	std::vector<DrawVec3::Vertex> res = dv.build_vertices();
 	std::string str;
@@ -216,7 +328,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 		str += buf;
 	}
 
-	MessageBox(NULL, str.data(), "tip", MB_OK);
+	MessageBox(NULL, str.data(), "tip", MB_OK);*/
 	return 0;
 }
 
