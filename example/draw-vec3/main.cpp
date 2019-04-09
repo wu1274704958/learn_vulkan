@@ -15,7 +15,8 @@ class Example : public VulkanExampleBase
 public:
 	Example() : VulkanExampleBase(true)
 	{
-
+		zoom = -10.5f;
+		title = "draw vec";
 	}
 	~Example()
 	{
@@ -32,7 +33,9 @@ public:
 
 	void render() override
 	{
-
+		if (!prepared)
+			return;
+		draw();
 	}
 
 	void buildCommandBuffers()
@@ -82,6 +85,9 @@ public:
 	void prepareVertices()
 	{
 		dvs.push_back(DrawVec3(glm::vec3(1.0f, 0.0f, 0.0f)));
+		dvs.push_back(DrawVec3(glm::vec3(0.0f, 1.0f, 0.0f)));
+		dvs.push_back(DrawVec3(glm::vec3(0.0f, 0.0f, 1.0f)));
+		dvs.push_back(DrawVec3(glm::vec3(1.0f, 1.0f, 0.0f)));
 		indices = dvs[0].build_indices();
 		setupIndexBuffer();
 		setupVertexBuffer( dbg(6  * sizeof(DrawVec3::Vertex)) );
@@ -93,7 +99,22 @@ public:
 
 	void setupIndexBuffer()
 	{
+		vks::Buffer stageBuffer;
 
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&stageBuffer, static_cast<VkDeviceSize>(sizeof(uint32_t)) * indices.size(),indices.data());
+		
+		stageBuffer.flush();
+		
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			&indexBuffer, static_cast<VkDeviceSize>(sizeof(uint32_t)) * indices.size());
+		
+
+		vulkanDevice->copyBuffer(&stageBuffer, &indexBuffer, queue);
+
+		stageBuffer.destroy();
 	}
 
 	void setupVertexBuffer(size_t buffer_size)
@@ -115,8 +136,9 @@ public:
 		vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 			&stageBuffer, dbg( sizeof(DrawVec3::Vertex) * static_cast<VkDeviceSize>(vertices.size())) , vertices.data() );
-
+		stageBuffer.flush();
 		vulkanDevice->copyBuffer(&stageBuffer, &vertexBuffers[index],queue);
+		stageBuffer.destroy();
 	}
 
 	void setupVertexDescription()
@@ -225,8 +247,8 @@ public:
 		VK_CHECK_RESULT(uniformBuffer.map());
 
 		uboVS.projection = glm::perspective(glm::radians(60.0f), (float)width / (float)height, 0.1f, 512.0f);
-		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, zoom));
-		glm::mat4 model = view * glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+		uboVS.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, zoom));
+		glm::mat4 model = glm::mat4(1.0f);
 
 		model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
 		model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -270,6 +292,19 @@ public:
 	}
 
 private:
+
+	virtual void getEnabledFeatures() override
+	{
+		if (deviceFeatures.fillModeNonSolid)
+		{
+			enabledFeatures.fillModeNonSolid = VK_TRUE;
+			if (deviceFeatures.wideLines)
+			{
+				enabledFeatures.wideLines = VK_TRUE;
+			}
+		}
+	}
+
 	VkPipeline pipeline;
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkDescriptorSet descriptorSet;
