@@ -30,12 +30,18 @@ public:
 
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 	}
-
+	float rotatex = 0.0f;
 	void render() override
 	{
 		if (!prepared)
 			return;
 		draw();
+		glm::mat4 mat(1.0f);
+		mat = glm::rotate(mat, rotatex, glm::vec3(1.0f, 0.0f, 0.0f));
+		glm::vec4 v = mat * glm::vec4(1.0f, 1.0f, 0.0f,1.0f);
+		dvs[3].set_vec(glm::vec3(v.x,v.y,v.z));
+		updateVertexBuffer(3);
+		rotatex += 0.01;
 	}
 
 	void buildCommandBuffers()
@@ -88,6 +94,8 @@ public:
 		dvs.push_back(DrawVec3(glm::vec3(0.0f, 1.0f, 0.0f)));
 		dvs.push_back(DrawVec3(glm::vec3(0.0f, 0.0f, 1.0f)));
 		dvs.push_back(DrawVec3(glm::vec3(1.0f, 1.0f, 0.0f)));
+		//dvs.push_back(DrawVec3(glm::vec3(1.0f, 1.0f, 1.0f)));
+		//dvs.push_back(DrawVec3(glm::vec3(1.0f, 1.0f, -2.0f)));
 		indices = dvs[0].build_indices();
 		setupIndexBuffer();
 		setupVertexBuffer( dbg(dvs[0].indices_count()  * sizeof(DrawVec3::Vertex)) );
