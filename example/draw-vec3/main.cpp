@@ -36,12 +36,6 @@ public:
 		if (!prepared)
 			return;
 		draw();
-		glm::mat4 mat(1.0f);
-		mat = glm::rotate(mat, rotatex, glm::vec3(0.0f, 0.0f, 1.0f));
-		glm::vec4 v = mat * glm::vec4(1.0f, 0.0f, 0.0f,1.0f);
-		dvs[3].set_vec(glm::vec3(v.x,v.y,v.z));
-		updateVertexBuffer(3);
-		rotatex += 0.01;
 	}
 
 	void buildCommandBuffers()
@@ -90,10 +84,21 @@ public:
 
 	void prepareVertices()
 	{
-		dvs.push_back(DrawVec3(glm::vec3(1.0f, 0.0f, 0.0f)));
-		dvs.push_back(DrawVec3(glm::vec3(0.0f, 1.0f, 0.0f)));
-		dvs.push_back(DrawVec3(glm::vec3(0.0f, 0.0f, 1.0f)));
-		dvs.push_back(DrawVec3(glm::vec3(1.0f, 1.0f, 0.0f)));
+		auto x = DrawVec3(glm::vec3(1.0f, 0.0f, 0.0f));
+		x.set_color(x.get_vec());
+
+		auto z = DrawVec3(glm::vec3(0.0f, 0.0f, 1.0f));
+		z.set_color(z.get_vec());
+
+		auto y = DrawVec3(glm::vec3(0.0f, 1.0f, 0.0f));
+		y.set_color(y.get_vec());
+
+		dvs.push_back(x);
+		dvs.push_back(y);
+		dvs.push_back(z);
+		auto xy = DrawVec3(glm::vec3(1.0f, 1.0f, 0.0f));
+		xy.set_color(xy.get_vec());
+		dvs.push_back(xy);
 		//dvs.push_back(DrawVec3(glm::vec3(1.0f, 1.0f, 1.0f)));
 		//dvs.push_back(DrawVec3(glm::vec3(1.0f, 1.0f, -2.0f)));
 		indices = dvs[0].build_indices();
@@ -143,7 +148,7 @@ public:
 
 		vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&stageBuffer, dbg( sizeof(DrawVec3::Vertex) * static_cast<VkDeviceSize>(vertices.size())) , vertices.data() );
+			&stageBuffer,  sizeof(DrawVec3::Vertex) * static_cast<VkDeviceSize>(vertices.size()) , vertices.data()) ;
 		stageBuffer.flush();
 		vulkanDevice->copyBuffer(&stageBuffer, &vertexBuffers[index],queue);
 		stageBuffer.destroy();
@@ -297,6 +302,19 @@ public:
 	virtual void viewChanged() override
 	{
 		updateUniformBuffer();
+	}
+
+	void keyPressed(uint32_t code) override
+	{
+		if (code == 65)
+		{
+			glm::mat4 mat(1.0f);
+			mat = glm::rotate(mat, rotatex, glm::vec3(1.0f, 0.0f, 0.0f));
+			glm::vec4 v = mat * glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+			dvs[3].set_vec(glm::vec3(v.x, v.y, v.z));
+			updateVertexBuffer(3);
+			rotatex += 0.1;
+		}
 	}
 
 private:
