@@ -86,7 +86,7 @@ public:
 	{
 		auto x = DrawVec3(glm::vec3(1.0f, 0.0f, 0.0f));
 		x.set_color(x.get_vec());
-
+		dvs.push_back(x);
 		auto z = DrawVec3(glm::vec3(0.0f, 0.0f, 1.0f));
 		z.set_color(z.get_vec());
 
@@ -310,9 +310,9 @@ public:
 		{
 			glm::mat4 mat(1.0f);
 			mat = glm::rotate(mat, rotatex, glm::vec3(0.0f, 0.0f, 1.0f));
-			glm::vec4 v = mat * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-			dvs[3].set_vec(glm::vec3(v.x, v.y, v.z));
-			updateVertexBuffer(3);
+			glm::vec4 v = mat * glm::vec4(1.0f, 1.0f, -2.0f, 1.0f);
+			dvs[4].set_vec(glm::vec3(v.x, v.y, v.z));
+			updateVertexBuffer(4);
 			rotatex += 0.1;
 		}
 	}
