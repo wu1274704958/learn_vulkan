@@ -114,6 +114,6 @@ public:
 	}
 
 	uint32_t indices_count() { return 10; }
-	
+	uint32_t vertices_count() { return 6; }
 
 };

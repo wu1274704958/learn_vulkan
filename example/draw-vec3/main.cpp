@@ -103,7 +103,7 @@ public:
 		dvs.push_back(DrawVec3(glm::vec3(1.0f, 1.0f, -2.0f)));
 		indices = dvs[0].build_indices();
 		setupIndexBuffer();
-		setupVertexBuffer( dbg(dvs[0].indices_count()  * sizeof(DrawVec3::Vertex)) );
+		setupVertexBuffer( dbg(dvs[0].vertices_count()  * sizeof(DrawVec3::Vertex)) );
 		for (int i = 0; i < dvs.size(); ++i)
 		{
 			updateVertexBuffer(i);
