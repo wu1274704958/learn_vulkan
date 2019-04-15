@@ -11,6 +11,7 @@ private:
 	glm::vec3 color = glm::vec3(1.0f, 0.0f, 0.0f);
 	bool needUpdate = false;
 	float arrow_rate = 0.2f;
+	float line_width = 1.0f;
 public:
 	struct Vertex{
 		glm::vec3 pos;
@@ -64,6 +65,16 @@ public:
 	float get_arrow_rate()
 	{
 		return this->arrow_rate;
+	}
+
+	void set_line_width(float v)
+	{
+		this->line_width = v;
+	}
+
+	float get_line_width()
+	{
+		return this->line_width;
 	}
 
 	float dot(glm::vec2 v1, glm::vec2 v2)

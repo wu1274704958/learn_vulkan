@@ -38,7 +38,7 @@ public:
 		draw();
 	}
 
-	void buildCommandBuffers()
+	void buildCommandBuffers() override
 	{
 		using namespace vks::initializers;
 
@@ -71,6 +71,7 @@ public:
 			
 			for (int j = 0; j < vertexBuffers.size(); ++j)
 			{
+				vkCmdSetLineWidth(drawCmdBuffers[i],dvs[j].get_line_width());
 				VkDeviceSize offset[1] = { 0 };
 				vkCmdBindVertexBuffers(drawCmdBuffers[i], 0, 1, &vertexBuffers[j].buffer, offset);
 				vkCmdBindIndexBuffer(drawCmdBuffers[i], indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -306,14 +307,26 @@ public:
 
 	void keyPressed(uint32_t code) override
 	{
-		if (code == 65)
+		switch (code)
 		{
+		case 'A':
 			glm::mat4 mat(1.0f);
 			mat = glm::rotate(mat, rotatex, glm::vec3(0.0f, 0.0f, 1.0f));
 			glm::vec4 v = mat * glm::vec4(1.0f, 1.0f, -2.0f, 1.0f);
 			dvs[4].set_vec(glm::vec3(v.x, v.y, v.z));
+			//dvs[4].set_pos(glm::vec3( 1.0f,0.0f,0.0f ));
+			if (dvs[4].get_line_width() == 1.0f)
+			{
+				dvs[4].set_line_width(3.0f);
+				buildCommandBuffers();
+			}
 			updateVertexBuffer(4);
 			rotatex += 0.1;
+			break;
+		case 'S':
+			dvs[4].set_pos(dvs[4].get_vec());
+			updateVertexBuffer(4);
+			break;
 		}
 	}
 
