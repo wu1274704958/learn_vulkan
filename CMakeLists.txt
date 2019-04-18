@@ -75,6 +75,7 @@ add_subdirectory(example/dynamic-uniform-buffer)
 add_subdirectory(example/push-constants)
 add_subdirectory(example/specialization-constants)
 add_subdirectory(example/draw-vec3)
+add_subdirectory(example/texture)
 
 if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 	
