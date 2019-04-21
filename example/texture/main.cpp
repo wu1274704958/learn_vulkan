@@ -114,7 +114,7 @@ public:
 #endif
 		assert(!tex2D.empty());
 
-		texture.mipLevels = static_cast<uint32_t>(tex2D.levels);
+		texture.mipLevels = static_cast<uint32_t>(tex2D.levels());
 		texture.width = static_cast<uint32_t>(tex2D[0].extent().x);
 		texture.height = static_cast<uint32_t>(tex2D[0].extent().y);
 
@@ -142,7 +142,119 @@ public:
 			bufferCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 			vkCreateBuffer(device, &bufferCI, nullptr, &stagingBuffer);
 
+			vkGetBufferMemoryRequirements(device, stagingBuffer, &memRequirments);
 
+			memAllocInfo.allocationSize = memRequirments.size;
+			memAllocInfo.memoryTypeIndex = vulkanDevice->getMemoryType(memRequirments.memoryTypeBits,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+			vkAllocateMemory(device, &memAllocInfo, nullptr, &stagingMem);
+			vkBindBufferMemory(device, stagingBuffer, stagingMem, 0);
+
+			void* data;
+			vkMapMemory(device, stagingMem, 0, tex2D.size(), 0, &data);
+			memcpy(data, tex2D.data(), tex2D.size());
+			vkUnmapMemory(device, stagingMem);
+
+			std::vector<VkBufferImageCopy> bufferCopyRegions;
+
+			uint32_t offset = 0;
+			for (int i = 0; i < texture.mipLevels; ++i)
+			{
+				VkBufferImageCopy bufferCopyRegion = {};
+				bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+				bufferCopyRegion.imageSubresource.layerCount = 1;
+				bufferCopyRegion.imageSubresource.mipLevel = i;
+
+				bufferCopyRegion.imageExtent.width = static_cast<uint32_t>(tex2D[i].extent().x);
+				bufferCopyRegion.imageExtent.width = static_cast<uint32_t>(tex2D[i].extent().y);
+				bufferCopyRegion.imageExtent.depth = 1;
+				
+				bufferCopyRegion.bufferOffset = offset;
+				
+				bufferCopyRegions.push_back(bufferCopyRegion);
+
+				offset += tex2D[i].size();
+			}
+
+			VkImageCreateInfo imageCI = imageCreateInfo();
+			imageCI.imageType = VK_IMAGE_TYPE_2D;
+			imageCI.format = format;
+			imageCI.mipLevels = texture.mipLevels;
+			imageCI.arrayLayers = 1;
+			imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+			imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+			imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			imageCI.extent = { texture.width,texture.height,1 };
+			imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+			vkCreateImage(device, &imageCI, nullptr, &texture.image);
+
+			vkGetImageMemoryRequirements(device, texture.image, &memRequirments);
+
+			memAllocInfo.allocationSize = memRequirments.size;
+			memAllocInfo.memoryTypeIndex = vulkanDevice->getMemoryType(memRequirments.memoryTypeBits,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			vkAllocateMemory(device, &memAllocInfo, nullptr, &texture.memory);
+
+			vkBindImageMemory(device, texture.image, texture.memory,0);
+
+			VkCommandBuffer copyCmd = VulkanExampleBase::createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+			VkImageSubresourceRange subResourceRange = {};
+			subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			subResourceRange.baseArrayLayer = 0;
+			subResourceRange.baseMipLevel = 0;
+			subResourceRange.layerCount = 1;
+			subResourceRange.levelCount = texture.mipLevels;
+
+			VkImageMemoryBarrier imageMemoryBar = imageMemoryBarrier();
+			imageMemoryBar.image = texture.image;
+			imageMemoryBar.subresourceRange = subResourceRange;
+			imageMemoryBar.srcAccessMask = 0;
+			imageMemoryBar.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			imageMemoryBar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			imageMemoryBar.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+			vkCmdPipelineBarrier(copyCmd,
+				VK_PIPELINE_STAGE_HOST_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0,
+				0,nullptr,
+				0,nullptr,
+				1, &imageMemoryBar);
+
+			vkCmdCopyBufferToImage(
+				copyCmd,
+				stagingBuffer,
+				texture.image,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				static_cast<uint32_t>(bufferCopyRegions.size()), bufferCopyRegions.data()
+			);
+
+			imageMemoryBar.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			imageMemoryBar.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			imageMemoryBar.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			imageMemoryBar.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			vkCmdPipelineBarrier(
+				copyCmd,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				0,
+				0, nullptr,
+				0, nullptr,
+				1, &imageMemoryBar
+			);
+
+			texture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			VulkanExampleBase::flushCommandBuffer(copyCmd, queue, true);
+
+			vkFreeMemory(device, stagingMem, nullptr);
+			vkDestroyBuffer(device, stagingBuffer, nullptr);
 		}
 		else {
 
