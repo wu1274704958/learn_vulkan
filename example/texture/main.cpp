@@ -48,10 +48,18 @@ private:
 	VkPipelineLayout pipelineLayout;
 	VkDescriptorSet descriptorSet;
 
+	struct {
+		std::vector<VkVertexInputBindingDescription> bindings;
+		std::vector<VkVertexInputAttributeDescription> attrs;
+		VkPipelineVertexInputStateCreateInfo info;
+	} vertexInputState;
+
 public:
 	void render() override
 	{
-
+		if (!prepared)
+			return
+		draw();
 	}
 
 	Example() : VulkanExampleBase(true)
@@ -152,7 +160,7 @@ public:
 			vkBindBufferMemory(device, stagingBuffer, stagingMem, 0);
 
 			void* data;
-			vkMapMemory(device, stagingMem, 0, tex2D.size(), 0, &data);
+			vkMapMemory(device, stagingMem, 0, memRequirments.size, 0, &data);
 			memcpy(data, tex2D.data(), tex2D.size());
 			vkUnmapMemory(device, stagingMem);
 
@@ -257,15 +265,337 @@ public:
 			vkDestroyBuffer(device, stagingBuffer, nullptr);
 		}
 		else {
+			VkImage mappableImage;
+			VkDeviceMemory mappableMem;
 
+			VkImageCreateInfo imageCI = imageCreateInfo();
+			imageCI.imageType = VK_IMAGE_TYPE_2D;
+			imageCI.format = format;
+			imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+			imageCI.arrayLayers = 1;
+			imageCI.extent = { texture.width , texture.height,1 };
+			imageCI.mipLevels = 1;
+			imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+			imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			imageCI.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+			imageCI.tiling = VK_IMAGE_TILING_LINEAR;
+
+			vkCreateImage(device, &imageCI, nullptr,&mappableImage);
+
+			vkGetImageMemoryRequirements(device, mappableImage, &memRequirments);
+
+			memAllocInfo.allocationSize = memRequirments.size;
+			memAllocInfo.memoryTypeIndex = vulkanDevice->getMemoryType(memRequirments.memoryTypeBits,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+			
+			vkAllocateMemory(device, &memAllocInfo, nullptr, &mappableMem);
+			vkBindImageMemory(device, mappableImage, mappableMem,0);
+
+			void *data;
+
+			vkMapMemory(device, mappableMem, 0, memRequirments.size, 0,&data);
+
+			memcpy(data, tex2D[0].data(), tex2D[0].size());
+
+			vkUnmapMemory(device, mappableMem);
+
+			texture.image = mappableImage;
+			texture.memory = mappableMem;
+			texture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			VkCommandBuffer copyCmd = VulkanExampleBase::createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+			VkImageSubresourceRange subResourceRange = {};
+			subResourceRange.baseArrayLayer = 0;
+			subResourceRange.baseMipLevel = 0;
+			subResourceRange.layerCount = 1;
+			subResourceRange.levelCount = 1;
+			subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+			VkImageMemoryBarrier imageMemBarrier = imageMemoryBarrier();
+			imageMemBarrier.image = texture.image;
+			imageMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+			imageMemBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			imageMemBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+			imageMemBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			vkCmdPipelineBarrier(copyCmd,
+				VK_PIPELINE_STAGE_HOST_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				0,
+				0, nullptr,
+				0, nullptr,
+				1, &imageMemBarrier);
+
+			VulkanExampleBase::flushCommandBuffer(copyCmd, queue, true);
 		}
+
+		VkSamplerCreateInfo sampleCI = samplerCreateInfo();
+		sampleCI.minFilter = VK_FILTER_LINEAR;
+		sampleCI.magFilter = VK_FILTER_LINEAR;
+		sampleCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampleCI.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampleCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampleCI.mipLodBias = 0.0f;
+		sampleCI.compareOp = VK_COMPARE_OP_NEVER;
+		sampleCI.minLod = 0.0f;
+		sampleCI.maxLod = useStaging ? (float)texture.mipLevels : 0.0f;
+
+		if (vulkanDevice->enabledFeatures.samplerAnisotropy)
+		{
+			sampleCI.maxAnisotropy = vulkanDevice->properties.limits.maxSamplerAnisotropy;
+			sampleCI.anisotropyEnable = VK_TRUE;
+		}
+		else {
+			sampleCI.maxAnisotropy = 1.0f;
+			sampleCI.anisotropyEnable = VK_FALSE;
+		}
+
+		sampleCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		vkCreateSampler(device, &sampleCI, nullptr, &texture.sampler);
+
+		VkImageViewCreateInfo ivCI = imageViewCreateInfo();
+		ivCI.format = format;
+		ivCI.components = { VK_COMPONENT_SWIZZLE_R ,VK_COMPONENT_SWIZZLE_G,VK_COMPONENT_SWIZZLE_B,VK_COMPONENT_SWIZZLE_A };
+		ivCI.image = texture.image;
+		ivCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		ivCI.subresourceRange.baseArrayLayer = 0;
+		ivCI.subresourceRange.baseMipLevel = 0;
+		ivCI.subresourceRange.layerCount = 1;
+		ivCI.subresourceRange.levelCount = useStaging ? texture.mipLevels : 1;
+		ivCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+		vkCreateImageView(device, &ivCI, nullptr, &texture.imageView);
 	}
 
 	void buildCommandBuffers() override
 	{
+		VkCommandBufferBeginInfo cmdBeginI = vks::initializers::commandBufferBeginInfo();
 
+		VkClearValue clearVal[2];
+		clearVal[0].color = defaultClearColor;
+		clearVal[1].depthStencil = { 1.0f,0 };
+
+		VkRenderPassBeginInfo renderPassBeginI = vks::initializers::renderPassBeginInfo();
+		renderPassBeginI.renderPass = renderPass;
+		renderPassBeginI.clearValueCount = wws::arrLen<uint32_t>(clearVal);
+		renderPassBeginI.pClearValues = clearVal;
+		renderPassBeginI.renderArea = { {0, 0} , {width,height} };
+
+		for (int i = 0; i < drawCmdBuffers.size(); ++i)
+		{
+			renderPassBeginI.framebuffer = frameBuffers[i];
+			vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBeginI);
+			vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginI, VK_SUBPASS_CONTENTS_INLINE);
+
+			VkViewport vp = vks::initializers::viewport(width, height, 0.0f, 1.0f);
+			vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &vp);
+			
+			VkRect2D scissor = vks::initializers::rect2D(width, height, 0, 0);
+			vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
+
+			vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+			vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.soild);
+
+			VkDeviceSize offset[1] = { 0 };
+
+			vkCmdBindVertexBuffers(drawCmdBuffers[i], 0, 1, &vertexBuffer.buffer, offset);
+			vkCmdBindIndexBuffer(drawCmdBuffers[i], indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+			vkCmdDrawIndexed(drawCmdBuffers[i], indexCount, 1, 0, 0, 0);
+
+			drawUI(drawCmdBuffers[i]);
+
+			vkCmdEndRenderPass(drawCmdBuffers[i]) ;
+			VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
+		}
 	}
 
+	void draw()
+	{
+		VulkanExampleBase::prepareFrame();
+
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+
+		vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+
+		VulkanExampleBase::submitFrame();
+	}
+
+	void generateQuad()
+	{
+		std::vector<Vertex> vertices = {
+			{{1.0f,1.0f,0.0f},	{1.0f,1.0f},{0.0f,0.0f,1.0f}},
+			{{-1.0f,1.0f,0.0f},	{0.0f,1.0f},{0.0f,0.0f,1.0f}},
+			{{-1.0f,-1.0f,0.0f},{0.0f,0.0f},{0.0f,0.0f,1.0f}},
+			{{1.0f,-1.0f,0.0f},	{1.0f,0.0f},{0.0f,0.0f,1.0f}}
+		};
+
+		std::vector<uint32_t> indices = { 0,1,2,  2,3,0 };
+		indexCount = static_cast<uint32_t>(indices.size());
+
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexBuffer,
+			sizeof(Vertex) * vertices.size(), vertices.data());
+
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &indexBuffer,
+			sizeof(uint32_t) * indices.size(), indices.data());
+	}
+
+	void setupVertexDescriptions()
+	{
+		using namespace vks::initializers;
+
+		vertexInputState.bindings = {
+			vertexInputBindingDescription(0,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX)
+		};
+
+		vertexInputState.attrs = {
+			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,0),
+			vertexInputAttributeDescription(0,1,VK_FORMAT_R32G32_SFLOAT,offsetof(Vertex,uv)),
+			vertexInputAttributeDescription(0,2,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,normal))
+		};
+
+		vertexInputState.info = pipelineVertexInputStateCreateInfo();
+		vertexInputState.info.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputState.bindings.size());
+		vertexInputState.info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputState.attrs.size());
+		vertexInputState.info.pVertexBindingDescriptions = vertexInputState.bindings.data();
+		vertexInputState.info.pVertexAttributeDescriptions = vertexInputState.attrs.data();
+	}
+
+	void setupDescriptorPool()
+	{
+		VkDescriptorPoolSize sizes[] = {
+			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1),
+			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1)
+		};
+
+		auto poolCI = vks::initializers::descriptorPoolCreateInfo(wws::arrLen<uint32_t>(sizes), sizes, 2);
+		vkCreateDescriptorPool(device, &poolCI, nullptr, &descriptorPool);
+	}
+
+	void setupDescriptorSetLayout()
+	{
+		using namespace vks::initializers;
+		VkDescriptorSetLayoutBinding bindings[] = {
+			descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,VK_SHADER_STAGE_VERTEX_BIT,0),
+			descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,VK_SHADER_STAGE_FRAGMENT_BIT,1)
+		};
+
+		auto descriptorSetLayoutCI = descriptorSetLayoutCreateInfo(bindings, wws::arrLen<uint32_t>(bindings));
+		vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayout);
+
+		auto pipelineLayoutCI = pipelineLayoutCreateInfo(&descriptorSetLayout);
+		vkCreatePipelineLayout(device, &pipelineLayoutCI,nullptr, &pipelineLayout);
+	}
+
+	void setupDescriptorSet()
+	{
+		auto allocI = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayout, 1);
+		vkAllocateDescriptorSets(device, &allocI, &descriptorSet);
+
+		auto descriptorImage = vks::initializers::descriptorImageInfo(texture.sampler, texture.imageView, texture.imageLayout);
+
+		VkWriteDescriptorSet writeSets[] = {
+			vks::initializers::writeDescriptorSet(descriptorSet,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,0,&uniformBuffer.descriptor),
+			vks::initializers::writeDescriptorSet(descriptorSet,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1,&descriptorImage)
+		};
+
+		vkUpdateDescriptorSets(device, wws::arrLen<uint32_t>(writeSets), writeSets, 0, nullptr);
+	}
+
+	void preparePipeline()
+	{
+		using namespace vks::initializers;
+
+		auto inputAssemblySCI = pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+		auto rasterizationSCI = pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+		auto blendAttachment = pipelineColorBlendAttachmentState(0xf, VK_FALSE);
+		auto blendSCI = pipelineColorBlendStateCreateInfo(1, &blendAttachment);
+		auto depthStencilSCI = pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+		auto vpSCI = pipelineViewportStateCreateInfo(1, 1);
+		auto multsampleSCI = pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+		VkDynamicState dynameicSs[] = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR
+		};
+		auto dynamicSCI = pipelineDynamicStateCreateInfo(dynameicSs, wws::arrLen<uint32_t>(dynameicSs));
+		VkPipelineShaderStageCreateInfo shaderStages[] = {
+			loadShader(getAssetPath() + "shaders/texture/texture.vert.spv",VK_SHADER_STAGE_VERTEX_BIT),
+			loadShader(getAssetPath() + "shaders/texture/texture.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT)
+		};
+
+		auto pipelineCI = pipelineCreateInfo(pipelineLayout, renderPass);
+		pipelineCI.stageCount = wws::arrLen<uint32_t>(shaderStages);
+		pipelineCI.pInputAssemblyState = &inputAssemblySCI;
+		pipelineCI.pRasterizationState = &rasterizationSCI;
+		pipelineCI.pColorBlendState = &blendSCI;
+		pipelineCI.pDepthStencilState = &depthStencilSCI;
+		pipelineCI.pViewportState = &vpSCI;
+		pipelineCI.pMultisampleState = &multsampleSCI;
+		pipelineCI.pDynamicState = &dynamicSCI;
+		pipelineCI.pStages = shaderStages;
+		pipelineCI.pVertexInputState = &vertexInputState.info;
+		VK_CHECK_RESULT( vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.soild) );
+	}
+
+	void prepareUniformBuffers()
+	{
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformBuffer,sizeof(uboVS));
+
+		updateUniformBuffer();
+	}
+
+	void updateUniformBuffer()
+	{
+
+		uboVS.projection = glm::perspective(glm::radians(60.0f), (float)width / (float)height, 0.1f, 512.0f);
+		glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, zoom));
+
+		uboVS.model = viewMatrix;
+		uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+		uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+		uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		uboVS.viewPos = glm::vec4(0.0f, 0.0f, -zoom, 0.0f);
+
+		uniformBuffer.map();
+
+		memcpy(uniformBuffer.mapped, &uboVS, sizeof(uboVS));
+
+		uniformBuffer.unmap();
+	}
+
+	void prepare() override
+	{
+		VulkanExampleBase::prepare();
+		loadTexture();
+		generateQuad();
+		setupVertexDescriptions();
+		prepareUniformBuffers();
+		setupDescriptorSetLayout();
+		preparePipeline();
+		setupDescriptorPool();
+		setupDescriptorSet();
+		buildCommandBuffers();
+		prepared = true;
+	}
+
+	void viewChanged() override
+	{
+		updateUniformBuffer();
+	}
+
+	void OnUpdateUIOverlay(vks::UIOverlay *overlay) override
+	{
+		if (overlay->header("Settings"))
+		{
+			if (overlay->sliderFloat("LOD bias", &uboVS.lodBias, 0.0f, (float)texture.mipLevels)) {
+				updateUniformBuffer();
+			}
+		}
+	}
 };
 
 #if defined(_WIN32)
@@ -282,15 +612,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-	/*for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
+	for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
 	example = new Example();
 	example->initVulkan();
 	example->setupWindow(hInstance, WndProc);
 	example->prepare();
 	example->renderLoop();
-	delete example;*/
+	delete example;
 
-	MessageBoxA(NULL, "sssssss", "tip", MB_OK);
+	system("pause");
 	return 0;
 }
 
