@@ -128,8 +128,8 @@ public:
 
 		bool useStaging = true;
 
-		bool forceLinearTiling = false;
-		if (forceLinearTiling)//Èç¹ûÇ¿ÖÆÆôÓÃÏßÐÔÆ½ÆÌ Èç¹ûÉè±¸Ö§³Ö¾Í²»ÓÃ device local memory
+		bool forceLinearTiling = true;
+		if (forceLinearTiling)//ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½è±¸Ö§ï¿½Ö¾Í²ï¿½ï¿½ï¿½ device local memory
 		{
 			VkFormatProperties properties;
 			vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &properties);
@@ -176,7 +176,7 @@ public:
 				bufferCopyRegion.imageSubresource.mipLevel = i;
 
 				bufferCopyRegion.imageExtent.width = static_cast<uint32_t>(tex2D[i].extent().x);
-				bufferCopyRegion.imageExtent.width = static_cast<uint32_t>(tex2D[i].extent().y);
+				bufferCopyRegion.imageExtent.height = static_cast<uint32_t>(tex2D[i].extent().y);
 				bufferCopyRegion.imageExtent.depth = 1;
 				
 				bufferCopyRegion.bufferOffset = offset;
@@ -318,6 +318,7 @@ public:
 			imageMemBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 			imageMemBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 			imageMemBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageMemBarrier.subresourceRange = subResourceRange;
 
 			vkCmdPipelineBarrier(copyCmd,
 				VK_PIPELINE_STAGE_HOST_BIT,
