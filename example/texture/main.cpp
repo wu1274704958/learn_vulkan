@@ -128,7 +128,7 @@ public:
 
 		bool useStaging = true;
 
-		bool forceLinearTiling = true;
+		bool forceLinearTiling = false;
 		if (forceLinearTiling)//���ǿ����������ƽ�� ����豸֧�־Ͳ��� device local memory
 		{
 			VkFormatProperties properties;
@@ -172,6 +172,7 @@ public:
 				VkBufferImageCopy bufferCopyRegion = {};
 				bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 				bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+
 				bufferCopyRegion.imageSubresource.layerCount = 1;
 				bufferCopyRegion.imageSubresource.mipLevel = i;
 
@@ -334,6 +335,7 @@ public:
 		VkSamplerCreateInfo sampleCI = samplerCreateInfo();
 		sampleCI.minFilter = VK_FILTER_LINEAR;
 		sampleCI.magFilter = VK_FILTER_LINEAR;
+		sampleCI.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 		sampleCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		sampleCI.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		sampleCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -493,7 +495,7 @@ public:
 	void setupDescriptorSet()
 	{
 		auto allocI = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayout, 1);
-		vkAllocateDescriptorSets(device, &allocI, &descriptorSet);
+		VK_CHECK_RESULT( vkAllocateDescriptorSets(device, &allocI, &descriptorSet) );
 
 		auto descriptorImage = vks::initializers::descriptorImageInfo(texture.sampler, texture.imageView, texture.imageLayout);
 
@@ -502,7 +504,7 @@ public:
 			vks::initializers::writeDescriptorSet(descriptorSet,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1,&descriptorImage)
 		};
 
-		vkUpdateDescriptorSets(device, wws::arrLen<uint32_t>(writeSets), writeSets, 0, nullptr);
+		 vkUpdateDescriptorSets(device, wws::arrLen<uint32_t>(writeSets), writeSets, 0, nullptr) ;
 	}
 
 	void preparePipeline()
@@ -510,7 +512,7 @@ public:
 		using namespace vks::initializers;
 
 		auto inputAssemblySCI = pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
-		auto rasterizationSCI = pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+		auto rasterizationSCI = pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 		auto blendAttachment = pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 		auto blendSCI = pipelineColorBlendStateCreateInfo(1, &blendAttachment);
 		auto depthStencilSCI = pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
@@ -545,26 +547,24 @@ public:
 		vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformBuffer,sizeof(uboVS));
 
-		updateUniformBuffer();
+		updateUniformBuffers();
 	}
 
-	void updateUniformBuffer()
+	void updateUniformBuffers()
 	{
-
-		uboVS.projection = glm::perspective(glm::radians(60.0f), (float)width / (float)height, 0.1f, 512.0f);
+		// Vertex shader
+		uboVS.projection = glm::perspective(glm::radians(60.0f), (float)width / (float)height, 0.001f, 256.0f);
 		glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, zoom));
 
-		uboVS.model = viewMatrix;
+		uboVS.model = viewMatrix * glm::translate(glm::mat4(1.0f), cameraPos);
 		uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
 		uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
 		uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
 		uboVS.viewPos = glm::vec4(0.0f, 0.0f, -zoom, 0.0f);
 
-		uniformBuffer.map();
-
+		VK_CHECK_RESULT(uniformBuffer.map());
 		memcpy(uniformBuffer.mapped, &uboVS, sizeof(uboVS));
-
 		uniformBuffer.unmap();
 	}
 
@@ -585,7 +585,7 @@ public:
 
 	void viewChanged() override
 	{
-		updateUniformBuffer();
+		updateUniformBuffers();
 	}
 
 	void OnUpdateUIOverlay(vks::UIOverlay *overlay) override
@@ -593,7 +593,7 @@ public:
 		if (overlay->header("Settings"))
 		{
 			if (overlay->sliderFloat("LOD bias", &uboVS.lodBias, 0.0f, (float)texture.mipLevels)) {
-				updateUniformBuffer();
+				updateUniformBuffers();
 			}
 		}
 	}
