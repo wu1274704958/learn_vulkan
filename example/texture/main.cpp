@@ -303,6 +303,7 @@ public:
 			texture.image = mappableImage;
 			texture.memory = mappableMem;
 			texture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			texture.mipLevels = 0.0f;
 
 			VkCommandBuffer copyCmd = VulkanExampleBase::createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 
@@ -590,7 +591,7 @@ public:
 
 	void OnUpdateUIOverlay(vks::UIOverlay *overlay) override
 	{
-		if (overlay->header("Settings"))
+		if (texture.mipLevels > 0.0f && overlay->header("Settings") )
 		{
 			if (overlay->sliderFloat("LOD bias", &uboVS.lodBias, 0.0f, (float)texture.mipLevels)) {
 				updateUniformBuffers();
@@ -621,7 +622,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 	example->renderLoop();
 	delete example;
 
-	system("pause");
 	return 0;
 }
 
