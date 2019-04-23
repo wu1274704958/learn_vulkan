@@ -58,7 +58,7 @@ public:
 	void render() override
 	{
 		if (!prepared)
-			return
+			return;
 		draw();
 	}
 
