@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <utility>
+#include <tuple>
 
 namespace wws{
 	template <bool B, typename T>
@@ -51,6 +52,40 @@ namespace wws{
 
 	};
 
+	template<typename T, bool Not_Last_One>
+	void check_and_cout(std::ostream& out, T&& t)
+	{
+		if constexpr (can_cout<T>::val)
+		{
+			out << t;
+		}
+		else {
+			out << "Can not print!";
+		}
+		if constexpr (Not_Last_One)
+		{
+			out << ",";
+		}
+	}
+
+	template<typename Tup, size_t ... Idx>
+	void go_through_cout(std::ostream& out, Tup&& tup, std::index_sequence<Idx...> is)
+	{
+		(check_and_cout< decltype(std::get<Idx>(tup)), (Idx < (std::tuple_size_v<Tup> -1)) >(out, std::get<Idx>(tup)), ...);
+	}
+
+	template<typename ...Args>
+	std::ostream& operator<<(std::ostream& out, std::tuple<Args...>&& tup)
+	{
+		out << "( ";
+		if constexpr (std::tuple_size_v<std::tuple<Args...>> > 0)
+		{
+			go_through_cout(out, std::forward<decltype(tup)>(tup), std::make_index_sequence< std::tuple_size_v<std::tuple<Args...>> >());
+		}
+		out << " )";
+		return out;
+	}
+
 	template<typename T>
 	auto dbg_func(const char *expr,const char *file,int line, T&& t) -> T
 	{
@@ -70,6 +105,13 @@ namespace wws{
         std::cout << "[" << file  << ":" << line << "] "<< expr << " = " << "void" << std::endl;
         return;
     }
+
+	template<typename... Args>
+	auto dbg_func(const char *expr, const char *file, int line, std::tuple<Args...> &&tup) -> std::tuple<Args...>
+	{
+		std::cout << "[" << file << ":" << line << "] " << expr << " = " << std::forward<std::tuple<Args...>>(tup) << std::endl;
+		return std::forward<std::tuple<Args...>>(tup);
+	}
 }
 
 #define dbg(...)  wws::dbg_func(#__VA_ARGS__,__FILE__,__LINE__,(__VA_ARGS__))
