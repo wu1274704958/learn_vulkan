@@ -48,15 +48,17 @@ class Example2 : public DrawVec3Demo {
 		DrawVec3 dv = DrawVec3(glm::vec3(2.0f, 3.0f, 4.0f));
 		dv.set_line_width(1.5f);
 		dv.set_color(glm::vec3(0.5f, 0.0f, 0.5f));
+		dv.set_arrow_rate(0.06f);
+		dvs.push_back(dv);
 		dvs.push_back(dv);
 
 		auto v1 = glm::vec3(2.0f, 3.0f, 4.0f);
 		float len = glm::length(v1);
 		auto w = glm::cross(v1, glm::vec3(0.0f, 1.0f, 0.0f));
-		float rate = len / glm::length(w);
-		ww1 = rate * w;
+		
+		ww1 = v1;
 		auto w2 = glm::cross(v1, w);
-		rate = len / glm::length(w2);
+		float rate = len / glm::length(w2);
 		ww2 = rate * w2;
 	}
 	void update_vec() override 
