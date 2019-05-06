@@ -37,11 +37,44 @@ class Example : public DrawVec3Demo {
 	}
 };
 
+class Example2 : public DrawVec3Demo {
+
+	float angle = 0.0f;
+	glm::vec3 ww1;
+	glm::vec3 ww2;
+
+	void init_vec() override
+	{
+		DrawVec3 dv = DrawVec3(glm::vec3(2.0f, 3.0f, 4.0f));
+		dv.set_line_width(1.5f);
+		dv.set_color(glm::vec3(0.5f, 0.0f, 0.5f));
+		dvs.push_back(dv);
+
+		auto v1 = glm::vec3(2.0f, 3.0f, 4.0f);
+		float len = glm::length(v1);
+		auto w = glm::cross(v1, glm::vec3(0.0f, 1.0f, 0.0f));
+		float rate = len / glm::length(w);
+		ww1 = rate * w;
+		auto w2 = glm::cross(v1, w);
+		rate = len / glm::length(w2);
+		ww2 = rate * w2;
+	}
+	void update_vec() override 
+	{
+		auto vec = ww1 * glm::cos(angle) + ww2 * glm::sin(angle);
+		dvs[3].set_vec(vec);
+		angle += 0.001f;
+		if (angle >= glm::two_pi<float>())
+			angle = 0.0f;
+		updateVertexBuffer(3);
+	}
+};
+
 	
 
 #if defined(_WIN32)
 
-Example* example;
+DrawVec3Demo* example;
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (example != NULL)
@@ -54,7 +87,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
 	for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
-	example = new Example();
+	example = new Example2();
 	example->initVulkan();
 	example->setupWindow(hInstance, WndProc);
 	example->prepare();
@@ -78,7 +111,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 #elif defined(__linux__)
 
 // Linux entry point
-Example* example;
+DrawVec3Demo* example;
 static void handleEvent(const xcb_generic_event_t* event)
 {
 	if (example != NULL)

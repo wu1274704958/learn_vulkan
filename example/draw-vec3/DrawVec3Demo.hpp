@@ -38,6 +38,7 @@ public:
 		if (!prepared)
 			return;
 		draw();
+		update_vec();
 	}
 
 	void buildCommandBuffers() override
@@ -90,11 +91,16 @@ public:
 
 	}
 
+	virtual void update_vec()
+	{
+
+	}
+
 	void prepareVertices()
 	{
 		auto x = DrawVec3(glm::vec3(1.0f, 0.0f, 0.0f));
 		x.set_color(x.get_vec());
-		dvs.push_back(x);
+		
 		auto z = DrawVec3(glm::vec3(0.0f, 0.0f, 1.0f));
 		z.set_color(z.get_vec());
 
