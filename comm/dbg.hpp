@@ -36,7 +36,7 @@ namespace wws{
 	struct can_cout
 	{
 		template<typename U>
-		static auto func(int) -> decltype((std::declval<std::ostream&>() << std::declval<U>()), std::true_type())
+		static auto func(int) -> decltype((std::declval<std::ostream&>() << std::declval<U&>()), std::true_type())
 		{
 			return std::true_type();
 		}
@@ -45,7 +45,7 @@ namespace wws{
 		{
 			return std::false_type();
 		}
-		static constexpr bool val = decltype(func<T>(0))::value;
+		static constexpr bool val = decltype(func<std::remove_cv_t<T>>(0))::value;
 	};
 
 	struct V{
