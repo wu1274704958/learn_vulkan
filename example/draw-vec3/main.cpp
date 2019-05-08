@@ -60,6 +60,15 @@ class Example2 : public DrawVec3Demo {
 		auto w2 = glm::cross(v1, w);
 		float rate = len / glm::length(w2);
 		ww2 = rate * w2;
+
+		glm::mat4 mat(1.0f);
+		mat = glm::rotate(mat, glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		mat = glm::rotate(mat, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		glm::vec4 t_v = mat * glm::vec4(1.0f,0.0f,0.0f,1.0f);
+		dbg(std::make_tuple(t_v.x, t_v.y, t_v.z));
+		dv.set_vec(glm::vec3(t_v));
+		dv.set_color(glm::vec3(1.0f, 0.5, 0.5f));
+		dvs.push_back(dv);
 	}
 	void update_vec() override 
 	{

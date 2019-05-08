@@ -36,7 +36,7 @@ namespace wws{
 	struct can_cout
 	{
 		template<typename U>
-		static auto func(int) -> decltype((std::declval<std::ostream&>() << std::declval<U&>()), std::true_type())
+		static auto func(int) -> decltype((std::declval<std::ostream&>() << std::declval<U&>() ), std::true_type())
 		{
 			return std::true_type();
 		}
@@ -45,8 +45,9 @@ namespace wws{
 		{
 			return std::false_type();
 		}
-		static constexpr bool val = decltype(func<std::remove_cv_t<T>>(0))::value;
+		static constexpr bool val = decltype(func<T>(0))::value;
 	};
+
 
 	struct V{
 
@@ -75,7 +76,7 @@ namespace wws{
 	}
 
 	template<typename ...Args>
-	std::ostream& operator<<(std::ostream& out, std::tuple<Args...>&& tup)
+	std::ostream& print_tuple(std::ostream& out, std::tuple<Args...>&& tup)
 	{
 		out << "( ";
 		if constexpr (std::tuple_size_v<std::tuple<Args...>> > 0)
@@ -109,7 +110,8 @@ namespace wws{
 	template<typename... Args>
 	auto dbg_func(const char *expr, const char *file, int line, std::tuple<Args...> &&tup) -> std::tuple<Args...>
 	{
-		std::cout << "[" << file << ":" << line << "] " << expr << " = " << std::forward<std::tuple<Args...>>(tup) << std::endl;
+		std::cout << "[" << file << ":" << line << "] " << expr << " = ";  
+		print_tuple(std::cout,std::forward<std::tuple<Args...>>(tup)) << std::endl;
 		return std::forward<std::tuple<Args...>>(tup);
 	}
 }
