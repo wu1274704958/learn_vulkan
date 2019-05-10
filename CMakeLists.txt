@@ -4,6 +4,7 @@ project(learn_vulkan)
 if(WIN32)
 
     add_compile_options("/std:c++17")
+	add_compile_options("/permissive-")
 
 else()
 

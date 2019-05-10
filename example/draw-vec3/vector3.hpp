@@ -29,12 +29,23 @@ public:
 		this->pos = v;
 	}
 
+	void set_pos(glm::vec3&& v)
+	{
+		needUpdate = true;
+		this->pos = v;
+	}
+
 	glm::vec3 get_pos()
 	{
 		return this->pos;
 	}
 
 	void set_vec(glm::vec3& v)
+	{
+		needUpdate = true;
+		this->vec = v;
+	}
+	void set_vec(glm::vec3&& v)
 	{
 		needUpdate = true;
 		this->vec = v;
@@ -46,6 +57,12 @@ public:
 	}
 
 	void set_color(glm::vec3& v)
+	{
+		needUpdate = true;
+		this->color = v;
+	}
+
+	void set_color(glm::vec3&& v)
 	{
 		needUpdate = true;
 		this->color = v;

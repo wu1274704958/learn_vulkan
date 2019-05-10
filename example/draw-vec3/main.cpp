@@ -1,4 +1,5 @@
 #include "DrawVec3Demo.hpp"
+#include <comm/make_color.hpp>
 
 class Example : public DrawVec3Demo {
 
@@ -47,7 +48,7 @@ class Example2 : public DrawVec3Demo {
 	{
 		DrawVec3 dv = DrawVec3(glm::vec3(2.0f, 3.0f, 4.0f));
 		dv.set_line_width(1.5f);
-		dv.set_color(glm::vec3(0.5f, 0.0f, 0.5f));
+		dv.set_color(wws::make_rgb(PREPARE_STRING("#A020F0")).make<glm::vec3>());
 		dv.set_arrow_rate(0.06f);
 		dvs.push_back(dv);
 		dvs.push_back(dv);
@@ -67,7 +68,7 @@ class Example2 : public DrawVec3Demo {
 		glm::vec4 t_v = mat * glm::vec4(1.0f,0.0f,0.0f,1.0f);
 		dbg(std::make_tuple(t_v.x, t_v.y, t_v.z));
 		dv.set_vec(glm::vec3(t_v));
-		dv.set_color(glm::vec3(1.0f, 0.5, 0.5f));
+		dv.set_color(wws::make_rgb(PREPARE_STRING("#00F5FF")).make<glm::vec3>());
 		dvs.push_back(dv);
 	}
 	void update_vec() override 
