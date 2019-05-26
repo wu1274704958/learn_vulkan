@@ -127,7 +127,85 @@ public:
         memcpy(data,texCube.data(),texCube.size());
         vkUnmapMemory(device,stagingMem);
 
+		VkImageCreateInfo imageCI = imageCreateInfo();
+		imageCI.format = format;
+		imageCI.mipLevels = cubeMap.mipLevels;
+		imageCI.extent = { cubeMap.width,cubeMap.height,1 };
+		imageCI.imageType = VK_IMAGE_TYPE_2D;
+		imageCI.arrayLayers = 6;
+		imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		//this flag reauired for cube map images;
+		imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
+		vkCreateImage(device, &imageCI, nullptr, &cubeMap.image);
+
+		vkGetImageMemoryRequirements(device, cubeMap.image, &requirements);
+		memAllocateInfo.allocationSize = requirements.size;
+		memAllocateInfo.memoryTypeIndex = vulkanDevice->getMemoryType(requirements.memoryTypeBits,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vkAllocateMemory(device, &memAllocateInfo, nullptr, &cubeMap.deviceMemory);
+
+		vkBindImageMemory(device, cubeMap.image, cubeMap.deviceMemory,0);
+
+		VkCommandBuffer copyCmd = VulkanExampleBase::createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+		std::vector<VkBufferImageCopy> copyRegions;
+		uint32_t offset = 0;
+		for (int i = 0; i < 6; ++i)
+		{
+			for (int l = 0; l < cubeMap.mipLevels; ++l)
+			{
+				VkBufferImageCopy ic = {};
+				ic.imageSubresource.mipLevel = l;
+				ic.imageSubresource.baseArrayLayer = i;
+				ic.imageSubresource.layerCount = 1;
+				ic.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				ic.imageExtent.width = texCube[i][l].extent().x;
+				ic.imageExtent.height = texCube[i][l].extent().y;
+				ic.imageExtent.depth = 1;
+				ic.bufferOffset = offset;
+
+				copyRegions.push_back(ic);
+
+				ic.bufferOffset += texCube[i][l].size();
+			}
+		}
+		VkImageSubresourceRange subsourceRange = {};
+		subsourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subsourceRange.baseArrayLayer = 0;
+		subsourceRange.layerCount = 6;
+		subsourceRange.baseMipLevel = 0;
+		subsourceRange.levelCount = cubeMap.mipLevels;
+
+		vks::tools::setImageLayout(copyCmd,
+			cubeMap.image,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			subsourceRange);
+
+		vkCmdCopyBufferToImage(copyCmd,
+			stagingBuffer,
+			cubeMap.image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			static_cast<uint32_t>(copyRegions.size()),
+			copyRegions.data());
+
+		cubeMap.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		vks::tools::setImageLayout(copyCmd,
+			cubeMap.image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			cubeMap.imageLayout,
+			subsourceRange
+		);
+
+		VulkanExampleBase::flushCommandBuffer(copyCmd, queue, true);
+
+		//create sampler
     }
 
 private:
