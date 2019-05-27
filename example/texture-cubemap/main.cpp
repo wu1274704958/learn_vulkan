@@ -326,6 +326,29 @@ public:
 		}
 	}
 
+	void setupDescriptorPool()
+    {
+	    VkDescriptorPoolSize ss[] = {
+	        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,2),
+	        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,2)
+	    };
+
+	    VkDescriptorPoolCreateInfo poolCI = vks::initializers::descriptorPoolCreateInfo(wws::arrLen<uint32_t>(ss),ss,2);
+
+	    vkCreateDescriptorPool(device,&poolCI, nullptr,&descriptorPool);
+    }
+
+    void setDescriptorSetLayout()
+    {
+	    VkDescriptorSetLayoutBinding bindings[] = {
+	        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,VK_SHADER_STAGE_VERTEX_BIT,0),
+	        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,VK_SHADER_STAGE_FRAGMENT_BIT,1)
+	    };
+	    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(bindings,wws::arrLen<uint32_t >(bindings));
+
+	    vkCreateDescriptorSetLayout(device,&descriptorSetLayoutCI, nullptr,&descriptorSetLayout);
+    }
+
 private:
 	bool displaySkybox = true;
 	vks::Texture cubeMap;
