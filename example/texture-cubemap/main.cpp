@@ -76,7 +76,7 @@ public:
         }
     }
 
-    void loadCubeMap(std::string& path,VkFormat format,bool forceLinearTiling = false)
+    void loadCubeMap(std::string path,VkFormat format,bool forceLinearTiling = false)
     {
 #if defined(__ANDROID__)
         // Textures are stored inside the apk on Android (compressed)
@@ -206,7 +206,125 @@ public:
 		VulkanExampleBase::flushCommandBuffer(copyCmd, queue, true);
 
 		//create sampler
+		VkSamplerCreateInfo samplerCI = samplerCreateInfo();
+		samplerCI.minFilter = VK_FILTER_LINEAR;
+		samplerCI.magFilter = VK_FILTER_LINEAR;
+		samplerCI.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerCI.addressModeV = samplerCI.addressModeU;
+		samplerCI.addressModeW = samplerCI.addressModeU;
+		samplerCI.mipLodBias = 0.0f;
+		samplerCI.compareOp = VK_COMPARE_OP_NEVER;
+		samplerCI.minLod = 0.0f;
+		samplerCI.maxLod = cubeMap.mipLevels;
+		samplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		samplerCI.maxAnisotropy = 1.0f;
+		if (vulkanDevice->enabledFeatures.samplerAnisotropy)
+		{
+			samplerCI.maxAnisotropy = vulkanDevice->properties.limits.maxSamplerAnisotropy;
+			samplerCI.anisotropyEnable = VK_TRUE;
+		}
+
+		vkCreateSampler(device, &samplerCI, nullptr, &cubeMap.sampler);
+
+		VkImageViewCreateInfo ivCI = imageViewCreateInfo();
+		ivCI.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+		ivCI.format = format;
+		ivCI.components = { VK_COMPONENT_SWIZZLE_R,VK_COMPONENT_SWIZZLE_G,VK_COMPONENT_SWIZZLE_B,VK_COMPONENT_SWIZZLE_A };
+		ivCI.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT,0,cubeMap.mipLevels,0,6 };
+		ivCI.image = cubeMap.image;
+
+		vkCreateImageView(device, &ivCI, nullptr, &cubeMap.view);
     }
+
+	void loadTextures()
+	{
+		std::string path;
+		VkFormat format;
+		
+		if (deviceFeatures.textureCompressionBC)
+		{
+			path = "cubemap_yokohama_bc3_unorm.ktx";
+			format = VK_FORMAT_BC2_UNORM_BLOCK;
+		}
+		else if (deviceFeatures.textureCompressionASTC_LDR)
+		{
+			path = "cubemap_yokohama_astc_8x8_unorm.ktx";
+			format = VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
+		}
+		else if (deviceFeatures.textureCompressionETC2)
+		{
+			path = "cubemap_yokohama_etc2_unorm.ktx";
+			format = VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+		}
+		else {
+			vks::tools::exitFatal("Device not support any compression texture format!", VK_ERROR_FEATURE_NOT_PRESENT);
+		}
+		loadCubeMap(getAssetPath() + "textures/" + path, format);
+	}
+
+	void buildCommandBuffers() override
+	{
+		using namespace vks::initializers;
+
+		VkCommandBufferBeginInfo cmdBI = commandBufferBeginInfo();
+		
+		VkClearValue clearVal[2];
+		clearVal[0].color = defaultClearColor;
+		clearVal[1].depthStencil = { 1.0f,0 };
+
+		VkRenderPassBeginInfo rpBI = renderPassBeginInfo();
+		rpBI.clearValueCount = wws::arrLen<uint32_t>(clearVal);
+		rpBI.pClearValues = clearVal;
+		rpBI.renderPass = renderPass;
+		rpBI.renderArea = { 0,0,width,height };
+		for (int i = 0; i < drawCmdBuffers.size(); ++i)
+		{
+			rpBI.framebuffer = frameBuffers[i];
+
+			vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBI);
+			vkCmdBeginRenderPass(drawCmdBuffers[i], &rpBI, VK_SUBPASS_CONTENTS_INLINE);
+
+			VkViewport vp = viewport(width, height, 0.0f, 1.0f);
+			vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &vp);
+			VkRect2D scrssor = rect2D(width, height, 0, 0);
+			vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scrssor);
+
+			VkDeviceSize offset[] = { 0 };
+			if (displaySkybox)
+			{
+				vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets.skybox, 0, nullptr);
+				vkCmdBindVertexBuffers(drawCmdBuffers[i], 0, 1, &models.skybox.vertices.buffer, offset);
+				vkCmdBindIndexBuffer(drawCmdBuffers[i], models.skybox.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.skybox);
+				vkCmdDrawIndexed(drawCmdBuffers[i], models.skybox.indexCount, 1, 0, 0, 0);
+			}
+
+			vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets.object, 0, nullptr);
+			vkCmdBindVertexBuffers(drawCmdBuffers[i], 0, 1, &models.objects[models.object_index].vertices.buffer, offset);
+			vkCmdBindIndexBuffer(drawCmdBuffers[i], models.objects[models.object_index].indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.reflect);
+			vkCmdDrawIndexed(drawCmdBuffers[i], models.objects[models.object_index].indexCount, 1, 0, 0, 0);
+
+			drawUI(drawCmdBuffers[i]);
+
+			vkCmdEndRenderPass(drawCmdBuffers[i]);
+			vkEndCommandBuffer(drawCmdBuffers[i]);
+		}
+	}
+
+	void loadAssets()
+	{
+		models.skybox.loadFromFile(getAssetPath() + "models/cube.obj", vertexLayout, 0.05f, vulkanDevice, queue);
+
+		std::vector<std::string> filenames = { "sphere.obj", "teapot.dae", "torusknot.obj", "venus.fbx" };
+		objectNames = { "Sphere", "Teapot", "Torusknot", "Venus" };
+		for (auto file : filenames) {
+			vks::Model model;
+			model.loadFromFile(getAssetPath() + "models/" + file, vertexLayout, 0.05f * (file == "venus.fbx" ? 3.0f : 1.0f), vulkanDevice, queue);
+			models.objects.push_back(model);
+		}
+	}
 
 private:
 	bool displaySkybox = true;
