@@ -23,12 +23,13 @@ public:
 
 	void render() override
 	{
-
+        if(prepared)
+            draw();
 	}
 
 	Example() : VulkanExampleBase(true)
 	{
-        zoom = -4.f;
+        zoom = -20.f;
         rotationSpeed = 0.25f;
         rotation = {-7.25f,-120.f,0.f};
         title = "Cube map textures";
@@ -171,7 +172,7 @@ public:
 
 				copyRegions.push_back(ic);
 
-				ic.bufferOffset += texCube[i][l].size();
+				offset += texCube[i][l].size();
 			}
 		}
 		VkImageSubresourceRange subsourceRange = {};
@@ -235,6 +236,9 @@ public:
 		ivCI.image = cubeMap.image;
 
 		vkCreateImageView(device, &ivCI, nullptr, &cubeMap.view);
+
+		vkFreeMemory(device,stagingMem, nullptr);
+		vkDestroyBuffer(device,stagingBuffer, nullptr);
     }
 
 	void loadTextures()
@@ -338,7 +342,7 @@ public:
 	    vkCreateDescriptorPool(device,&poolCI, nullptr,&descriptorPool);
     }
 
-    void setDescriptorSetLayout()
+    void setupDescriptorSetLayout()
     {
 	    VkDescriptorSetLayoutBinding bindings[] = {
 	        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,VK_SHADER_STAGE_VERTEX_BIT,0),
@@ -347,6 +351,212 @@ public:
 	    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(bindings,wws::arrLen<uint32_t >(bindings));
 
 	    vkCreateDescriptorSetLayout(device,&descriptorSetLayoutCI, nullptr,&descriptorSetLayout);
+
+	    VkPipelineLayoutCreateInfo pipelineLayoutCI = vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout);
+	    vkCreatePipelineLayout(device,&pipelineLayoutCI, nullptr,&pipelineLayout);
+    }
+
+    void setupDescriptorSets()
+    {
+        VkDescriptorImageInfo descriptorImageI = vks::initializers::descriptorImageInfo(
+                cubeMap.sampler,
+                cubeMap.view,
+                cubeMap.imageLayout);
+        VkDescriptorSetAllocateInfo descriptorSetAllocateI = vks::initializers::descriptorSetAllocateInfo(
+                descriptorPool,&descriptorSetLayout,1
+                );
+        vkAllocateDescriptorSets(device,&descriptorSetAllocateI,&descriptorSets.object);
+
+        VkWriteDescriptorSet writeDescriptorSet[] = {
+                vks::initializers::writeDescriptorSet(
+                        descriptorSets.object,
+                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        0,&uniformBuffer.object.descriptor
+                        ),
+                vks::initializers::writeDescriptorSet(
+                        descriptorSets.object,
+                        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        1,&descriptorImageI
+                )
+        };
+
+        vkUpdateDescriptorSets(device,wws::arrLen<uint32_t>(writeDescriptorSet),writeDescriptorSet,0, nullptr);
+        vkAllocateDescriptorSets(device,&descriptorSetAllocateI,&descriptorSets.skybox);
+
+        writeDescriptorSet[0].dstSet = descriptorSets.skybox;
+        writeDescriptorSet[0].pBufferInfo = &uniformBuffer.skybox.descriptor;
+
+        writeDescriptorSet[1].dstSet = descriptorSets.skybox;
+
+        vkUpdateDescriptorSets(device,
+                wws::arrLen<uint32_t >(writeDescriptorSet),writeDescriptorSet,0, nullptr);
+    }
+
+    void preparePipelines()
+    {
+	    using namespace vks::initializers;
+
+	    VkPipelineInputAssemblyStateCreateInfo assemblyStateCI = pipelineInputAssemblyStateCreateInfo(
+	            VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,0,VK_FALSE
+	            );
+	    VkPipelineColorBlendAttachmentState colorBlendAttachmentS =
+	            pipelineColorBlendAttachmentState(0xf,VK_FALSE);
+	    VkPipelineRasterizationStateCreateInfo rasterizationStateCI = pipelineRasterizationStateCreateInfo(
+	            VK_POLYGON_MODE_FILL,VK_CULL_MODE_BACK_BIT,VK_FRONT_FACE_COUNTER_CLOCKWISE
+	            );
+	    VkPipelineColorBlendStateCreateInfo colorBlendStateCI = pipelineColorBlendStateCreateInfo(
+	            1,&colorBlendAttachmentS
+	            );
+	    VkPipelineDepthStencilStateCreateInfo depthStencilStateCI = pipelineDepthStencilStateCreateInfo(
+	            VK_FALSE,VK_FALSE,VK_COMPARE_OP_LESS_OR_EQUAL
+	            );
+
+	    VkPipelineViewportStateCreateInfo vpSCI = pipelineViewportStateCreateInfo(
+	            1,1
+	            );
+	    VkPipelineMultisampleStateCreateInfo multisampleStateCI = pipelineMultisampleStateCreateInfo(
+	            VK_SAMPLE_COUNT_1_BIT
+	            );
+
+	    VkDynamicState dynamicStates[] = {
+	            VK_DYNAMIC_STATE_VIEWPORT,
+	            VK_DYNAMIC_STATE_SCISSOR
+	    };
+
+	    VkPipelineDynamicStateCreateInfo dynamicStateCI = pipelineDynamicStateCreateInfo(
+	            dynamicStates,wws::arrLen(dynamicStates)
+	            );
+
+	    VkVertexInputBindingDescription inputBindingDescription = vertexInputBindingDescription(0,vertexLayout.stride(),VK_VERTEX_INPUT_RATE_VERTEX);
+
+	    VkVertexInputAttributeDescription inputAttributeDescriptions[] = {
+	            vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,0),
+	            vertexInputAttributeDescription(0,1,VK_FORMAT_R32G32B32_SFLOAT,12)
+	    };
+
+	    VkPipelineVertexInputStateCreateInfo inputSCI = pipelineVertexInputStateCreateInfo();
+	    inputSCI.vertexAttributeDescriptionCount = wws::arrLen(inputAttributeDescriptions);
+	    inputSCI.pVertexAttributeDescriptions = inputAttributeDescriptions;
+	    inputSCI.vertexBindingDescriptionCount = 1;
+	    inputSCI.pVertexBindingDescriptions = &inputBindingDescription;
+
+	    VkPipelineShaderStageCreateInfo shaders[2] = {{},{}};
+
+	    VkGraphicsPipelineCreateInfo pipelineCI = pipelineCreateInfo(pipelineLayout,renderPass);
+        pipelineCI.pInputAssemblyState = &assemblyStateCI;
+        pipelineCI.pRasterizationState = &rasterizationStateCI;
+        pipelineCI.pColorBlendState = &colorBlendStateCI;
+        pipelineCI.pDepthStencilState = &depthStencilStateCI;
+        pipelineCI.pMultisampleState = &multisampleStateCI;
+        pipelineCI.pDynamicState = &dynamicStateCI;
+        pipelineCI.pViewportState = &vpSCI;
+        pipelineCI.pVertexInputState = &inputSCI;
+        pipelineCI.stageCount = wws::arrLen(shaders);
+        pipelineCI.pStages = shaders;
+
+        shaders[0] = loadShader(getAssetPath() + "shaders/texturecubemap/skybox.vert.spv",VK_SHADER_STAGE_VERTEX_BIT);
+        shaders[1] = loadShader(getAssetPath() + "shaders/texturecubemap/skybox.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+
+        vkCreateGraphicsPipelines(device,pipelineCache,1,&pipelineCI, nullptr,&pipelines.skybox);
+
+        shaders[0] = loadShader(getAssetPath() + "shaders/texturecubemap/reflect.vert.spv",VK_SHADER_STAGE_VERTEX_BIT);
+        shaders[1] = loadShader(getAssetPath() + "shaders/texturecubemap/reflect.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+
+        depthStencilStateCI.depthTestEnable = VK_TRUE;
+        depthStencilStateCI.depthWriteEnable = VK_TRUE;
+        rasterizationStateCI.cullMode = VK_CULL_MODE_FRONT_BIT;
+
+        vkCreateGraphicsPipelines(device,pipelineCache,1,&pipelineCI, nullptr,&pipelines.reflect);
+    }
+
+    void prepareUniformBuffers()
+    {
+        vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                                   &uniformBuffer.object,sizeof(uboVS));
+        vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                                  &uniformBuffer.skybox,sizeof(uboVS));
+
+        updateUniformBuffers();
+    }
+
+    void updateUniformBuffers()
+    {
+	    //object
+        {
+            glm::mat4 view(1.0f);
+            view = glm::translate(view,glm::vec3(0.0f,0.0f,zoom));
+
+            uboVS.model = glm::mat4(1.0f);
+            uboVS.model = view * glm::translate(uboVS.model, cameraPos);
+            uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+            uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+            uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
+            uboVS.projection = glm::perspective(glm::radians(60.0f),(float)width/(float)height,0.001f, 256.0f);
+
+            uniformBuffer.object.map(sizeof(uboVS));
+            memcpy(uniformBuffer.object.mapped,&uboVS, sizeof(uboVS));
+            uniformBuffer.object.unmap();
+        }
+        //sky box
+        {
+
+
+            uboVS.model = glm::mat4(1.0f);
+            uboVS.model = glm::translate(uboVS.model, glm::vec3(0.0f,0.0f,0.0f));
+            uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+            uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+            uboVS.model = glm::rotate(uboVS.model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
+            uboVS.projection = glm::perspective(glm::radians(60.0f),(float)width/(float)height,0.001f, 256.0f);
+
+            uniformBuffer.skybox.map(sizeof(uboVS));
+            memcpy(uniformBuffer.skybox.mapped,&uboVS, sizeof(uboVS));
+            uniformBuffer.skybox.unmap();
+        }
+    }
+
+    void draw() {
+	    VulkanExampleBase::prepareFrame();
+
+	    submitInfo.commandBufferCount = 1;
+	    submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+	    vkQueueSubmit(queue,1,&submitInfo,VK_NULL_HANDLE);
+
+	    VulkanExampleBase::submitFrame();
+	}
+
+    void viewChanged() override {
+        updateUniformBuffers();
+    }
+
+    void prepare() override {
+        VulkanExampleBase::prepare();
+        loadTextures();
+        loadAssets();
+        setupDescriptorPool();
+        prepareUniformBuffers();
+        setupDescriptorSetLayout();
+        setupDescriptorSets();
+        preparePipelines();
+        buildCommandBuffers();
+        prepared = true;
+    }
+
+    void OnUpdateUIOverlay(vks::UIOverlay *overlay) override {
+        if (overlay->header("Settings")) {
+            if (overlay->sliderFloat("LOD bias", &uboVS.lodBias, 0.0f, (float)cubeMap.mipLevels)) {
+                updateUniformBuffers();
+            }
+            if (overlay->comboBox("Object type", &models.object_index, objectNames)) {
+                buildCommandBuffers();
+            }
+            if (overlay->checkBox("Skybox", &displaySkybox)) {
+                buildCommandBuffers();
+            }
+        }
     }
 
 private:
@@ -400,14 +610,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-	/*for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
+	for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
 	example = new Example();
 	example->initVulkan();
 	example->setupWindow(hInstance, WndProc);
 	example->prepare();
 	example->renderLoop();
-	delete example;*/
-	MessageBoxA(nullptr, "ss", "zzzzzz", MB_OK);
+	delete example;
 	return 0;
 }
 

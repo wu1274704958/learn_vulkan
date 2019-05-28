@@ -43,4 +43,10 @@ namespace wws {
 	{
 		return static_cast<Ret>(arr_len_v<T>);
 	}
+
+    template<typename T>
+    constexpr size_t arrLen(T&& t)
+    {
+        return arr_len_v<T>;
+    }
 }
