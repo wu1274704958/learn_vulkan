@@ -105,6 +105,20 @@ using has_##feild##_vt = wws::is_detected<has_##feild##_t,T>;
 
 #undef has_color_
 
+#define has_color_(func_name)									\
+template <class T>											\
+using has_fn_##func_name##_t = decltype(std::declval<T>().func_name());	\
+															\
+template <typename T>										\
+using has_fn_##func_name##_vt = wws::is_detected<has_fn_##func_name##_t,T>;
+
+    has_color_(r)
+    has_color_(g)
+    has_color_(b)
+    has_color_(a)
+
+#undef has_color_
+
 
 	template<typename T>
 	struct rgba;
@@ -126,15 +140,29 @@ using has_##feild##_vt = wws::is_detected<has_##feild##_t,T>;
 		template<typename T>
 		T make()
 		{
-			static_assert(has_r_vt<T>::value &&
+			static_assert((has_r_vt<T>::value &&
 				has_g_vt<T>::value &&
 				has_b_vt<T>::value &&
-				has_a_vt<T>::value, "This type must has member named r,g,b,a!!!");
+				has_a_vt<T>::value) ||
+                (has_fn_r_vt<T>::value &&
+                has_fn_g_vt<T>::value &&
+                has_fn_b_vt<T>::value &&
+                has_fn_a_vt<T>::value), "This type must has member named r,g,b,a!!!");
 			T t;
-			t.r = value[0];
-			t.g = value[1];
-			t.b = value[2];
-			t.a = value[3];
+            if constexpr (has_r_vt<T>::value &&
+                          has_g_vt<T>::value &&
+                          has_b_vt<T>::value &&
+                          has_a_vt<T>::value) {
+                t.r = value[0];
+                t.g = value[1];
+                t.b = value[2];
+                t.a = value[3];
+            }else{
+                t.r() = value[0];
+                t.g() = value[1];
+                t.b() = value[2];
+                t.a() = value[3];
+            }
 			return t;
 		}
 	};
@@ -158,13 +186,25 @@ using has_##feild##_vt = wws::is_detected<has_##feild##_t,T>;
 		template<typename T>
 		T make()
 		{
-			static_assert(has_r_vt<T>::value &&
-				has_g_vt<T>::value &&
-				has_b_vt<T>::value, "This type must has member named r,g,b,a!!!");
+			static_assert(
+                    (has_r_vt<T>::value &&
+				    has_g_vt<T>::value &&
+				    has_b_vt<T>::value) ||
+				    (has_fn_r_vt<T>::value &&
+                     has_fn_g_vt<T>::value &&
+                     has_fn_b_vt<T>::value) , "This type must has member named r,g,b,a!!!");
 			T t;
-			t.r = value[0];
-			t.g = value[1];
-			t.b = value[2];
+			if constexpr (has_r_vt<T>::value &&
+                          has_g_vt<T>::value &&
+                          has_b_vt<T>::value) {
+                t.r = value[0];
+                t.g = value[1];
+                t.b = value[2];
+            }else{
+                t.r() = value[0];
+                t.g() = value[1];
+                t.b() = value[2];
+			}
 			return t;
 		}
 	};
