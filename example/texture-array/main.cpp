@@ -33,8 +33,8 @@ public:
     }
     Example() : VulkanExampleBase(true) {
         zoom = -15.0f;
-        rotationSpeed = 0.25f;
-        rotation = {-15.0f,35.f,0.f};
+        rotationSpeed = 0.01f;
+        rotation = {0.0f,0.f,0.f};
         title = "texture array";
         settings.overlay = true;
     }
@@ -403,16 +403,16 @@ public:
 
         for(uint32_t i = 0;i < layer_count;++i)
         {
-            instance_ptr[i].arrayIndex = i;
+            instance_ptr[i].arrayIndex.x = i;
             glm::mat4 model(1.0f);
             model = glm::translate(model,glm::vec3(0.0f,begin + i * offset,0.0f));
             model = glm::rotate(model,glm::radians(60.0f),glm::vec3(1.0f,0.0f,0.0f));
             instance_ptr[i].model = model;
         }
-
-        uniformBuffer.map(size, sizeof(uboVS));
-        memcpy(instance_ptr,uniformBuffer.mapped, sizeof(UboInstanceData) * layer_count);
-        uniformBuffer.unmap();
+		void* data;
+		vkMapMemory(device, uniformBuffer.memory, sizeof(uboVS), size, 0, &data);
+        memcpy(data,instance_ptr, sizeof(UboInstanceData) * layer_count);
+		vkUnmapMemory(device, uniformBuffer.memory);
 
         updateUniformBuffer_matrix();
     }
@@ -420,11 +420,13 @@ public:
     void updateUniformBuffer_matrix()
     {
         uboVS.projection = glm::perspective(glm::radians(60.f),(float)width/(float)height,0.01f,512.f);
-        glm::mat4 view = glm::mat4(1.0f);
+        glm::mat4 view(1.0f);
         view = glm::translate(view,glm::vec3(0.0f,0.0f,zoom));
         view = glm::rotate(view,rotation.x,glm::vec3(1.0f,0.0f,0.0f));
         view = glm::rotate(view,rotation.y,glm::vec3(0.0f,1.0f,0.0f));
         view = glm::rotate(view,rotation.z,glm::vec3(0.0f,0.0f,1.0f));
+
+		uboVS.view = view;
 
         uniformBuffer.map(sizeof(uboVS));
         memcpy(uniformBuffer.mapped,&uboVS, sizeof(uboVS));
@@ -467,7 +469,7 @@ private:
     struct UboInstanceData
     {
         glm::mat4 model;
-        uint32_t arrayIndex;
+		glm::vec4 arrayIndex;
     };
 
     struct {
