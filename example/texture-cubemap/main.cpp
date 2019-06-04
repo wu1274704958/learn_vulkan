@@ -82,7 +82,7 @@ public:
 #if defined(__ANDROID__)
         // Textures are stored inside the apk on Android (compressed)
 		// So they need to be loaded via the asset manager
-		AAsset* asset = AAssetManager_open(androidApp->activity->assetManager, filename.c_str(), AASSET_MODE_STREAMING);
+		AAsset* asset = AAssetManager_open(androidApp->activity->assetManager, path.c_str(), AASSET_MODE_STREAMING);
 		assert(asset);
 		size_t size = AAsset_getLength(asset);
 		assert(size > 0);

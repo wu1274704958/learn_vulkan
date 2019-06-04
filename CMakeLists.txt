@@ -78,6 +78,7 @@ add_subdirectory(example/specialization-constants)
 add_subdirectory(example/draw-vec3)
 add_subdirectory(example/texture)
 add_subdirectory(example/texture-cubemap)
+add_subdirectory(example/texture-array)
 
 if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 	
