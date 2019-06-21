@@ -14,12 +14,14 @@ class Example : public DrawVec3Demo {
 
 	void keyPressed(uint32_t code) override
 	{
+		glm::mat4 mat(1.0f);
+		glm::vec4 v;
 		switch (code)
 		{
 		case 'A':
-			glm::mat4 mat(1.0f);
+			
 			mat = glm::rotate(mat, rotatex, glm::vec3(0.0f, 0.0f, 1.0f));
-			glm::vec4 v = mat * glm::vec4(1.0f, 1.0f, -2.0f, 1.0f);
+			v = mat * glm::vec4(1.0f, 1.0f, -2.0f, 1.0f);
 			dvs[4].set_vec(glm::vec3(v.x, v.y, v.z));
 			//dvs[4].set_pos(glm::vec3( 1.0f,0.0f,0.0f ));
 			if (dvs[4].get_line_width() == 1.0f)
@@ -134,7 +136,7 @@ static void handleEvent(const xcb_generic_event_t* event)
 int main(const int argc, const char* argv[])
 {
 	for (size_t i = 0; i < argc; i++) { Example::args.push_back(argv[i]); };
-	example = new Example();
+	example = new Example2();
 	example->initVulkan();
 	example->setupWindow();
 	example->prepare();

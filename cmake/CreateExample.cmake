@@ -17,7 +17,7 @@ endif()
 set(SOURCE_FILE_LIST "")
 
 foreach(f ${CE_FILES})
-    list(APPEND SOURCE_FILE_LIST "example/${CE_DIR}/${f} ")
+    list(APPEND SOURCE_FILE_LIST "${CMAKE_SOURCE_DIR}/example/${CE_DIR}/${f}")
 endforeach()
 
 set(BUILD_NAME "${CE_DIR}")

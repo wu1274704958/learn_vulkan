@@ -86,7 +86,7 @@ if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 
 		CreateExample(DIR descriptorSets FILES descriptorsets.cpp)
 		CreateExample(DIR dynamic-uniform-buffer NO_GLI NO_ASSIMP FILES main.cpp)
-		CreateExample(DIR push-constants NO_ASSIMP FILES main.cpp)
+		CreateExample(DIR push-constants FILES main.cpp)
 		CreateExample(DIR specialization-constants FILES main.cpp)
 		CreateExample(DIR draw-vec3 NO_ASSIMP NO_GLI FILES main.cpp)
 		CreateExample(DIR texture NO_ASSIMP FILES  main.cpp)
