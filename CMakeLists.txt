@@ -78,8 +78,8 @@ if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 	
 	message(OK!)
 	message(${GLM_INCLUDE_DIR})
-    include_directories(${GLFW3_INCLUDE_DIR} ${VULKAN_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/3rd_party/stb)
-    add_executable(${PROJECT_NAME} main.cpp)
+	add_executable(${PROJECT_NAME} main.cpp)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${GLFW3_INCLUDE_DIR} ${VULKAN_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/3rd_party/stb)
     target_link_libraries(${PROJECT_NAME} ${GLFW3_LIBRARY} ${VULKAN_LIBRARY})
 
 	if(ASSIMP_FOUND)
