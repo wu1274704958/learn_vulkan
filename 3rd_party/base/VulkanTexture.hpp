@@ -14,12 +14,6 @@
 #include <vector>
 
 #include "vulkan/vulkan.h"
-#ifdef min
-#undef min
-#endif
-#ifdef max
-#undef max
-#endif
 #include <gli/gli.hpp>
 
 #include "VulkanTools.h"

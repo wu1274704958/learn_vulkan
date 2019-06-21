@@ -17,6 +17,8 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
+include(cmake/CreateExample.cmake)
+
 SET(BASE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/base")
 SET(IMGUI_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/imgui")
 SET(GLI_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/3rd_party/gli")
@@ -71,14 +73,6 @@ add_subdirectory(3rd_party/base)
 add_subdirectory(test_libbase)
 add_subdirectory(triangle)
 add_subdirectory(pipelines)
-add_subdirectory(example/descriptorSets)
-add_subdirectory(example/dynamic-uniform-buffer)
-add_subdirectory(example/push-constants)
-add_subdirectory(example/specialization-constants)
-add_subdirectory(example/draw-vec3)
-add_subdirectory(example/texture)
-add_subdirectory(example/texture-cubemap)
-add_subdirectory(example/texture-array)
 
 if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 	
@@ -87,6 +81,19 @@ if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
     include_directories(${GLFW3_INCLUDE_DIR} ${VULKAN_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/3rd_party/stb)
     add_executable(${PROJECT_NAME} main.cpp)
     target_link_libraries(${PROJECT_NAME} ${GLFW3_LIBRARY} ${VULKAN_LIBRARY})
+
+	if(ASSIMP_FOUND)
+
+		CreateExample(DIR descriptorSets FILES descriptorsets.cpp)
+		CreateExample(DIR dynamic-uniform-buffer NO_GLI NO_ASSIMP FILES main.cpp)
+		CreateExample(DIR push-constants NO_ASSIMP FILES main.cpp)
+		CreateExample(DIR specialization-constants FILES main.cpp)
+		CreateExample(DIR draw-vec3 NO_ASSIMP NO_GLI FILES main.cpp)
+		CreateExample(DIR texture NO_ASSIMP FILES  main.cpp)
+		CreateExample(DIR texture-cubemap FILES  main.cpp)
+		CreateExample(DIR texture-array NO_ASSIMP FILES  main.cpp)
+
+	endif()
 
 else()
 
