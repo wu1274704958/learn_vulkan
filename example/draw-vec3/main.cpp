@@ -48,6 +48,14 @@ class Example2 : public DrawVec3Demo {
 
 	void init_vec() override
 	{
+		//test
+		DrawVec3 test(glm::vec3(0.0f, 1.0f, 0.0f));
+		auto temp_v = test.build_vertices();
+		for (auto& v : temp_v)
+		{
+			dbg(std::make_tuple(v.pos.x,v.pos.y,v.pos.z));
+		}
+
 		DrawVec3 dv = DrawVec3(glm::vec3(2.0f, 3.0f, 4.0f));
 		dv.set_line_width(1.5f);
 		dv.set_color(wws::make_rgb(PREPARE_STRING("#A020F0")).make<glm::vec3>());
