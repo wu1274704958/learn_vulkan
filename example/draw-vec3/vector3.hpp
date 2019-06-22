@@ -111,14 +111,14 @@ public:
 		glm::vec3 forword = this->vec;
 
 		glm::vec3 temp_hl = glm::cross(this->vec , glm::vec3(0.0f, -1.0f, 0.0f));
-		if ( glm::zero<glm::vec3>() == temp_hl)
+		if ( equal_zero(temp_hl) )
 		{
 			temp_hl = glm::cross(this->vec, glm::vec3(0.0f, 0.0f, -1.0f));
 		}
 		res.push_back({  res[1].pos + (( glm::normalize( temp_hl ) - forword) * arrow_rate)   ,this->color });
 
 		glm::vec3 temp_hr = glm::cross( glm::vec3(0.0f, -1.0f, 0.0f), this->vec);
-		if (glm::zero<glm::vec3>() == temp_hr)
+		if (equal_zero(temp_hr))
 		{
 			temp_hr = glm::cross(glm::vec3(0.0f, 0.0f, -1.0f), this->vec);
 		}
@@ -134,6 +134,11 @@ public:
 		
 
 		return res;
+	}
+
+	bool equal_zero(glm::vec3& v)
+	{
+		return (v.x == 0 || v.x == -0) && (v.y == 0 || v.y == -0) && (v.z == 0 || v.z == -0);
 	}
 
 	std::vector<uint32_t> build_indices()
