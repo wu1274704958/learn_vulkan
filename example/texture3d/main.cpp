@@ -121,6 +121,13 @@ public:
 	}
 };
 
+struct Vertex
+{
+	glm::vec3 pos;
+	glm::vec2 uv;
+	glm::vec3 normal;
+};
+
 class Example : public VulkanExampleBase {
 private:
 
@@ -176,7 +183,14 @@ public:
 
 	void draw()
 	{
+		VulkanExampleBase::prepareFrame();
 
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+
+		vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+
+		VulkanExampleBase::submitFrame();
 	}
 
     Example() : VulkanExampleBase(true)
@@ -415,6 +429,93 @@ public:
 		delete[] data;
 		vkFreeMemory(device, stagingMem, nullptr);
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
+	}
+
+	void buildCommandBuffers() override
+	{
+		using namespace vks::initializers;
+
+		VkCommandBufferBeginInfo cmdBI = commandBufferBeginInfo();
+		VkClearValue clearVal[2];
+		clearVal[0].color = defaultClearColor;
+		clearVal[1].depthStencil = { 1.0f,0 };
+
+		VkRenderPassBeginInfo renderPassBI = renderPassBeginInfo();
+		renderPassBI.clearValueCount = wws::arrLen(clearVal);
+		renderPassBI.pClearValues = clearVal;
+		renderPassBI.renderPass = renderPass;
+		renderPassBI.renderArea = {
+			0,0,width,height
+		};
+
+		for (uint32_t i = 0; i < drawCmdBuffers.size(); ++i)
+		{
+			renderPassBI.framebuffer = frameBuffers[i];
+			vkBeginCommandBuffer(drawCmdBuffers[i],&cmdBI);
+			vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
+
+			VkViewport vp = viewport((float)width, (float)height, 0.0f, 1.0f);
+			vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &vp);
+
+			VkRect2D scissor = rect2D(width, height, 0, 0);
+			vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
+
+			vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &desscriptorSet, 0, nullptr);
+
+			vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.soild);
+
+			VkDeviceSize offset[1] = { 0 };
+			vkCmdBindVertexBuffers(drawCmdBuffers[i], 0, 1, &vertexBuffer.buffer, offset);
+			vkCmdBindIndexBuffer(drawCmdBuffers[i], indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+			vkCmdDrawIndexed(drawCmdBuffers[i], indexCount, 1, 0, 0, 0);
+
+			drawUI(drawCmdBuffers[i]);
+			vkCmdEndRenderPass(drawCmdBuffers[i]);
+			vkEndCommandBuffer(drawCmdBuffers[i]);
+		}
+	}
+
+	void generateQuad()
+	{
+		// Setup vertices for a single uv-mapped quad made from two triangles
+		std::vector<Vertex> vertices =
+		{
+			{ {  1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+			{ { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f },{ 0.0f, 0.0f, 1.0f } },
+			{ { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+			{ {  1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
+		};
+
+		// Setup indices
+		std::vector<uint32_t> indices = { 0,1,2, 2,3,0 };
+		indexCount = static_cast<uint32_t>(indices.size());
+
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			&vertexBuffer, sizeof(Vertex) * static_cast<uint32_t>(vertices.size()), vertices.data());
+
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
+			&indexBuffer, sizeof(uint32_t) * static_cast<uint32_t>(indices.size()));
+	}
+
+	void setupDescriptions()
+	{
+		using namespace vks::initializers;
+
+		visci.bindings.resize(1);
+		visci.bindings[0] = vertexInputBindingDescription(0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX);
+
+		visci.attrs = {
+			vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,pos)),
+			vertexInputAttributeDescription(0,1,VK_FORMAT_R32G32_SFLOAT,offsetof(Vertex,uv)),
+			vertexInputAttributeDescription(0,2,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,normal))
+		};
+
+		visci.sci = pipelineVertexInputStateCreateInfo();
+		visci.sci.vertexBindingDescriptionCount = 1;
+		visci.sci.pVertexBindingDescriptions = visci.bindings.data();
+		visci.sci.vertexAttributeDescriptionCount = static_cast<uint32_t>(visci.attrs.size());
+		visci.sci.pVertexAttributeDescriptions = visci.attrs.data();
 	}
 };
 
