@@ -10,7 +10,6 @@
 #include <VulkanDevice.hpp>
 #include <comm/CommTool.hpp>
 #include <comm/dbg.hpp>
-#include <VulkanTexture.hpp>
 #include <random>
 #include <VulkanModel.hpp>
 
@@ -357,7 +356,7 @@ public:
 
 		auto tend = std::chrono::high_resolution_clock::now();
 
-		std::cout << "used " << std::chrono::duration_cast<std::chrono::milliseconds>(tend - tStart).count << " ms\n";
+		std::cout << "used " << std::chrono::duration_cast<std::chrono::milliseconds>(tend - tStart).count() << " ms\n";
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingMem;
