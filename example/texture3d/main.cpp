@@ -159,7 +159,7 @@ private:
 	struct {
 		glm::mat4 projection;
 		glm::mat4 model;
-		glm::vec3 viewPos;
+		glm::vec4 viewPos;
 		float depth = 0.0f;
 	} uboVS;
 
@@ -179,7 +179,8 @@ public:
         if (!prepared)
             return;
         draw();
-		updateUniformBuffers(false);
+		if(!paused)
+			updateUniformBuffers(false);
 		
     }
 
