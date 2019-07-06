@@ -179,6 +179,8 @@ public:
         if (!prepared)
             return;
         draw();
+		updateUniformBuffers(false);
+		
     }
 
 	void draw()
@@ -491,14 +493,14 @@ public:
 		std::vector<uint32_t> indices = { 0,1,2, 2,3,0 };
 		indexCount = static_cast<uint32_t>(indices.size());
 
-		vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 			&vertexBuffer, sizeof(Vertex) * static_cast<uint32_t>(vertices.size()), vertices.data());
 
-		vulkanDevice->createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
-			&indexBuffer, sizeof(uint32_t) * static_cast<uint32_t>(indices.size()));
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&indexBuffer, sizeof(uint32_t) * static_cast<uint32_t>(indices.size()),indices.data());
 	}
 
-	void setupDescriptions()
+	void setupVertexDescriptions()
 	{
 		using namespace vks::initializers;
 
@@ -516,6 +518,153 @@ public:
 		visci.sci.pVertexBindingDescriptions = visci.bindings.data();
 		visci.sci.vertexAttributeDescriptionCount = static_cast<uint32_t>(visci.attrs.size());
 		visci.sci.pVertexAttributeDescriptions = visci.attrs.data();
+	}
+
+	void setupDescriptorPool()
+	{
+		VkDescriptorPoolSize ss[] = {
+			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1),
+			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1)
+		};
+
+		auto poolCI = vks::initializers::descriptorPoolCreateInfo(wws::arrLen(ss), ss,2);
+
+		vkCreateDescriptorPool(device, &poolCI, nullptr, &descriptorPool);
+	}
+
+	void setupDescriptorSetLayout()
+	{
+		VkDescriptorSetLayoutBinding bindings[] = {
+			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,VK_SHADER_STAGE_VERTEX_BIT,0),
+			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,VK_SHADER_STAGE_FRAGMENT_BIT,1)
+		};
+
+		VkDescriptorSetLayoutCreateInfo setLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(bindings, wws::arrLen(bindings));
+
+		vkCreateDescriptorSetLayout(device, &setLayoutCI, nullptr, &descriptorSetLayout);
+
+		auto pipelineLayoutCI = vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout, 1);
+
+		vkCreatePipelineLayout(device, &pipelineLayoutCI, nullptr, &pipelineLayout);
+	}
+
+	void setupDescriptorSet()
+	{
+		using namespace vks::initializers;
+
+		VkDescriptorSetAllocateInfo allocI = descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayout, 1);
+
+		vkAllocateDescriptorSets(device, &allocI, &desscriptorSet);
+
+		VkWriteDescriptorSet ss[] = {
+			writeDescriptorSet(desscriptorSet,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,0,&uniformBuffer.descriptor),
+			writeDescriptorSet(desscriptorSet,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1,&texture.descriptor),
+		};
+
+		vkUpdateDescriptorSets(device, wws::arrLen(ss), ss, 0, nullptr);
+	}
+
+	void preparePipelines()
+	{
+		using namespace vks::initializers;
+
+		auto inputAssemblySCI = pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+		auto rasterizationSCI = pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+		auto colorAttachment = pipelineColorBlendAttachmentState(0xf, VK_FALSE);
+		auto colorSCI = pipelineColorBlendStateCreateInfo(1, &colorAttachment);
+		auto depthStencilSCI = pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+		auto vpSCI = pipelineViewportStateCreateInfo(1, 1);
+		VkDynamicState dss[] = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR
+		};
+
+		auto dynamicSCI = pipelineDynamicStateCreateInfo(dss, wws::arrLen(dss));
+
+		auto multisamplerSCI = pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT);
+		
+		VkPipelineShaderStageCreateInfo stages[] = {
+			loadShader(getAssetPath() + "shaders/texture3d/texture3d.vert.spv" ,VK_SHADER_STAGE_VERTEX_BIT),
+			loadShader(getAssetPath() + "shaders/texture3d/texture3d.frag.spv" ,VK_SHADER_STAGE_FRAGMENT_BIT)
+		};
+
+		auto pipelineCI = pipelineCreateInfo(pipelineLayout, renderPass);
+
+		pipelineCI.pStages = stages;
+		pipelineCI.stageCount = wws::arrLen(stages);
+		pipelineCI.pInputAssemblyState = &inputAssemblySCI;
+		pipelineCI.pRasterizationState = &rasterizationSCI;
+		pipelineCI.pColorBlendState = &colorSCI;
+		pipelineCI.pDepthStencilState = &depthStencilSCI;
+		pipelineCI.pViewportState = &vpSCI;
+		pipelineCI.pDynamicState = &dynamicSCI;
+		pipelineCI.pMultisampleState = &multisamplerSCI;
+		pipelineCI.pVertexInputState = &visci.sci;
+
+		vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.soild);
+	}
+
+	void prepare()
+	{
+		VulkanExampleBase::prepare();
+		prepareNoiseTexture(128, 128, 128);
+		generateQuad();
+		setupVertexDescriptions();
+		preparUniformBuffers();
+		setupDescriptorPool();
+		setupDescriptorSetLayout();
+		setupDescriptorSet();
+		preparePipelines();
+		buildCommandBuffers();
+		prepared = true;
+	}
+
+	void preparUniformBuffers()
+	{
+		vulkanDevice->createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &uniformBuffer, sizeof(uboVS));
+		updateUniformBuffers();
+	}
+
+	void updateUniformBuffers(bool viewChange = true )
+	{
+		if (viewChange)
+		{
+			uboVS.projection = glm::perspective(glm::radians(60.0f), (float)width / (float)height, 0.1f, 512.0f);
+			auto model = glm::mat4(1.0f);
+
+			model = glm::translate(model, glm::vec3(0.0f, 0.0f, zoom));
+			model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+			model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+			model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+															  
+			uboVS.model = model;
+			uboVS.viewPos = glm::vec4(0.0f, 0.0f, -zoom, 0.0f);
+		}else{
+			uboVS.depth += frameTimer * 0.15f;
+			if (uboVS.depth > 1.0f)
+				uboVS.depth -= 1.0f;
+		}
+
+		uniformBuffer.map();
+		memcpy(uniformBuffer.mapped, &uboVS, sizeof(uboVS));
+		uniformBuffer.unmap();
+	}
+
+	void OnUpdateUIOverlay(vks::UIOverlay* overlay) override
+	{
+		if (overlay->header("Settings"))
+		{
+			if (overlay->button("generate new"))
+			{
+				updateNoiseTexture();
+			}
+		}
+	}
+
+	void viewChanged() override
+	{
+		updateUniformBuffers();
 	}
 };
 
@@ -535,19 +684,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-//    for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
-//    example = new Example();
-//    example->initVulkan();
-//    example->setupWindow(hInstance, WndProc);
-//    example->prepare();
-//    example->renderLoop();
-//    delete example;
-	auto perNoise = PerlinNoise<float>();
+    for (size_t i = 0; i < __argc; i++) { Example::args.push_back(__argv[i]); };
+    example = new Example();
+    example->initVulkan();
+    example->setupWindow(hInstance, WndProc);
+    example->prepare();
+    example->renderLoop();
+    delete example;
+	/*auto perNoise = PerlinNoise<float>();
 	auto res = perNoise.noise(0.5f, 0.5f, 0.0f);
 	std::string r;
 	r.reserve(200);
 	sprintf(r.data(), "res = %f", res);
-	MessageBoxA(0, r.data(), "tip", 0);
+	MessageBoxA(0, r.data(), "tip", 0);*/
     return 0;
 }
 
