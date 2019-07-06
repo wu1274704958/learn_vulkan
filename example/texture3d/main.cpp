@@ -14,7 +14,7 @@
 #include <VulkanModel.hpp>
 
 
-#define FRACTAL
+//#define FRACTAL
 
 template <typename T>
 class PerlinNoise
@@ -608,7 +608,7 @@ public:
 	void prepare()
 	{
 		VulkanExampleBase::prepare();
-		prepareNoiseTexture(128, 128, 128);
+		prepareNoiseTexture(512, 512, 512);
 		generateQuad();
 		setupVertexDescriptions();
 		preparUniformBuffers();
