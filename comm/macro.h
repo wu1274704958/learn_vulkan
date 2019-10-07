@@ -45,7 +45,7 @@ static void handleEvent(const xcb_generic_event_t* event)											\
 }																									\
 int main(const int argc, const char* argv[])														\
 {																									\
-	if constexpr(is_test)																			\
+	if constexpr(!is_test)																			\
 	{																								\
 		for (size_t i = 0; i < argc; i++) { Example::args.push_back(argv[i]); };					\
 		example = new Example();																	\

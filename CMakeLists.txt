@@ -94,6 +94,7 @@ if( GLFW3_FOUND AND VULKAN_FOUND AND GLM_FOUND)
 		CreateExample(DIR texture-array NO_ASSIMP FILES  main.cpp)
 		CreateExample(DIR texture3d NO_GLI FILES  main.cpp)
 		CreateExample(DIR load-model FILES  main.cpp)
+		CreateExample(DIR input-attachment FILES  main.cpp)
 	endif()
 
 else()
