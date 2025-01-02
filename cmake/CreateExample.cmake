@@ -35,16 +35,15 @@ add_dependencies(${BUILD_NAME} base)
 
 target_include_directories(${BUILD_NAME} PRIVATE ${BASE_INCLUDE_DIR} ${IMGUI_INCLUDE_DIR})
 
-target_include_directories(${BUILD_NAME} PRIVATE ${VULKAN_INCLUDE_DIR} ${GLM_INCLUDE_DIR})
-target_link_libraries(${BUILD_NAME} ${VULKAN_LIBRARY} ${BASE_LIBRARY})
+#target_include_directories(${BUILD_NAME} PRIVATE ${VULKAN_INCLUDE_DIR} ${GLM_INCLUDE_DIR})
+target_link_libraries(${BUILD_NAME} PRIVATE glfw Vulkan::Vulkan glm::glm ${BASE_LIBRARY})
 
 if(USE_GLI)
     target_include_directories(${BUILD_NAME} PRIVATE ${GLI_INCLUDE_DIR})
 endif(USE_GLI)
 
 if(USE_ASSIMP)
-    target_include_directories(${BUILD_NAME} PRIVATE ${ASSIMP_INCLUDE_DIR})
-    target_link_libraries(${BUILD_NAME} ${ASSIMP_LIBRARY})
+    target_link_libraries(${BUILD_NAME} PRIVATE assimp::assimp)
 endif(USE_ASSIMP)
 
 if(USE_D2D_WSI)
